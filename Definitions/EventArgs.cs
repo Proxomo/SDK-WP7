@@ -16,5 +16,6 @@ namespace Proxomo
     {
         public Exception Error { get; set; }
         public T Result { get; set; }
+        public ContinuationTokens cTokens { get; set; }
     }
 }

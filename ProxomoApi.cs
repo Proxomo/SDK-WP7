@@ -23,7 +23,7 @@ namespace Proxomo //ProxomoWP7SDK
     // that the use can register to listen to for each Proxomo method
     public delegate void ProxomoCallback(object value);
 
-    #region Proxomo Events: (1) Define a delegate type FOR EACH TYPE OF RESULT that methods can return
+   # region Proxomo Events: (1) Define a delegate type (function signature) FOR EACH TYPE OF RESULT that methods can return
 
     public delegate void ProxomoStringResultEventHandler(ItemCompletedEventArgs<string> results);
     public delegate void ProxomoTokenResultEventHandler(ItemCompletedEventArgs<Token> results);
@@ -44,6 +44,8 @@ namespace Proxomo //ProxomoWP7SDK
     public delegate void ProxomoListOfLocationResultEventHandler(ItemCompletedEventArgs<List<Location>> results);
     public delegate void ProxomoPersonResultEventHandler(ItemCompletedEventArgs<Person> results);
     public delegate void ProxomoListOfSocialNetworkInfoEventHandler(ItemCompletedEventArgs<List<SocialNetworkInfo>> results);
+
+    public delegate void ProxomoGenericResultEventHandler<T>(ItemCompletedEventArgs<T> results);
 
     #endregion
 
@@ -209,6 +211,12 @@ namespace Proxomo //ProxomoWP7SDK
         public event ProxomoStringResultEventHandler AppDataUpdate_Complete;
         public event ProxomoListAppDataResultEventHandler AppDataSearch_Complete;
 
+        public event ProxomoStringResultEventHandler CustomDataAdd_Complete;
+        public event ProxomoStringResultEventHandler CustomDataUpdate_Complete;
+        public event ProxomoStringResultEventHandler CustomDataDelete_Complete;
+        public event ProxomoGenericResultEventHandler<object> CustomDataSearch_Complete;
+        public event ProxomoGenericResultEventHandler<object> CustomDataGet_Complete;
+
         public event ProxomoStringResultEventHandler EventAdd_Complete;
         public event ProxomoEventResultEventHandler EventGet_Complete;
         public event ProxomoStringResultEventHandler EventUpdate_Complete;
@@ -273,7 +281,7 @@ namespace Proxomo //ProxomoWP7SDK
 
         #endregion
 
-        #region Proxomo Events: (3) Define the internal callbacks to raise each of the events declared earlier
+        #region Proxomo Events: (3) Define internal callbacks to raise each of the events declared earlier
 
         private void InitializationReady(ItemCompletedEventArgs<Token> e)
         {
@@ -308,6 +316,42 @@ namespace Proxomo //ProxomoWP7SDK
         { if (this.AppDataUpdate_Complete != null) { this.AppDataUpdate_Complete(e); } }
         private void AppDataSearchReady(ItemCompletedEventArgs<List<AppData>> e)
         { if (this.AppDataSearch_Complete != null) { this.AppDataSearch_Complete(e); } }
+
+        private void CustomDataAddReady(ItemCompletedEventArgs<string> e)
+        {
+            if (this.CustomDataAdd_Complete != null)
+            {
+                this.CustomDataAdd_Complete(e);
+            }
+        }
+        private void CustomDataUpdateReady(ItemCompletedEventArgs<string> e)
+        {
+            if (this.CustomDataUpdate_Complete != null)
+            {
+                this.CustomDataUpdate_Complete(e);
+            }
+        }
+        private void CustomDataDeleteReady(ItemCompletedEventArgs<string> e)
+        {
+            if (this.CustomDataDelete_Complete != null)
+            {
+                this.CustomDataDelete_Complete(e);
+            }
+        }
+        private void CustomDataSearchReady(ItemCompletedEventArgs<object> e)
+        {
+            if (this.CustomDataSearch_Complete != null)
+            {
+                this.CustomDataSearch_Complete(e);
+            }
+        }
+        private void CustomDataGetReady(ItemCompletedEventArgs<object> e)
+        {
+            //if (this.CustomDataGet_Complete != null)
+            //{
+            //    this.CustomDataGet_Complete(e);
+            //}
+        }
 
         private void EventAddReady(ItemCompletedEventArgs<string> e)
         { if (this.EventAdd_Complete != null) { this.EventAdd_Complete(e); } }
@@ -507,6 +551,59 @@ namespace Proxomo //ProxomoWP7SDK
                 p.GetDataItem(url, "GET", contentType, "", AppDataSearchReady);
             }
         }
+
+        #endregion
+
+        #region CustomDataStorage
+
+        public void CustomDataAdd<T>(T data)
+        {
+            
+            string url = string.Format("{0}/customdata", baseURL);
+
+            using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
+            {
+                p.GetDataItem(url, "POST", contentType, Converter.Convert(data, Format, false), CustomDataAddReady);
+            }
+        }
+        public void CustomDataUpdate<T>(T data)
+        {
+            string url = string.Format("{0}/customdata", baseURL);
+
+            using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
+            {
+                p.GetDataItem(url, "PUT", contentType, Converter.Convert(data, Format, false), CustomDataUpdateReady);
+            }
+        }
+        public void CustomDataDelete(string tableName, string customDataID)
+        {
+            string url = string.Format("{0}/customdata/table/{1}/{2}", baseURL, tableName, customDataID);
+
+            using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
+            {
+                p.GetDataItem(url, "DELETE", contentType, CustomDataDeleteReady);
+            }
+        }
+        public void CustomDataSearch<T>(string tableName, string query, int maxResults, ref ContinuationTokens cTokens)
+        {
+            string url = string.Format("{0}/customdata/search/table/{1}?q={2}&maxresults={3}", baseURL, tableName, query, maxResults);
+
+            using (ProxomoWebRequest<object> p = new ProxomoWebRequest<object>(AuthToken.AccessToken, ValidateSSLCert, Format))
+            {
+                p.GetDataItem("", "", "", "", CustomDataSearchReady, ref cTokens);
+            }
+
+        }
+        public void CustomDataGet<T>(string tableName, string customDataID)
+        {
+            string url = string.Format("{0}/customdata/table/{1}/{2}", baseURL, tableName, customDataID);
+
+            using (ProxomoWebRequest<object> p = new ProxomoWebRequest<object>(AuthToken.AccessToken, ValidateSSLCert, Format))
+            {
+                p.GetDataItem(url, "GET", contentType, CustomDataGetReady);
+            }
+        }
+
 
         #endregion
 
