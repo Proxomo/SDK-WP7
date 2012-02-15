@@ -79,6 +79,7 @@
     <Compile Include="Definitions\SocialNetworkFriend.cs" />
     <Compile Include="Definitions\SocialNetworkInfo.cs" />
     <Compile Include="Definitions\SocialNetworkPFriend.cs" />
+    <Compile Include="Definitions\Task.cs" />
     <Compile Include="Definitions\Token.cs" />
     <Compile Include="Enums\Enums.cs" />
     <Compile Include="Helpers\Converter.cs" />

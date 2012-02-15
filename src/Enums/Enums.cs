@@ -207,5 +207,58 @@ namespace Proxomo
         Cancel = 2
     }
 
+    [DataContract()]
+    public enum TaskType : int
+    {
+        [XmlEnum("0"), EnumMember(Value = "0")]
+        Once = 0,
 
+        [XmlEnum("1"), EnumMember(Value = "1")]
+        Reoccurring = 1
+    }
+
+    [DataContract()]
+    public enum TaskMethod : int
+    {
+        [XmlEnum("0"), EnumMember(Value = "0")]
+        URL = 0
+    }
+
+    [DataContract()]
+    public enum TaskResult : int
+    {
+        [XmlEnum("0"), EnumMember(Value = "0")]
+        Error = 0,
+
+        [XmlEnum("1"), EnumMember(Value = "1")]
+        Success = 1
+    }
+
+    [DataContract()]
+    public enum USTimeZone : int
+    {
+        [XmlEnum("0"), EnumMember(Value = "0")]
+        EasternTime = 0,
+
+        [XmlEnum("1"), EnumMember(Value = "1")]
+        CentralTime = 1,
+
+        [XmlEnum("2"), EnumMember(Value = "2")]
+        MountainTime = 2,
+
+        [XmlEnum("3"), EnumMember(Value = "3")]
+        MountainTimeArizona = 3,
+
+        [XmlEnum("4"), EnumMember(Value = "4")]
+        PacificTime = 5,
+
+        [XmlEnum("5"), EnumMember(Value = "5")]
+        AlaskanTime = 6,
+
+        [XmlEnum("6"), EnumMember(Value = "6")]
+        HawaiianTime = 7,
+
+        [XmlEnum("7"), EnumMember(Value = "7")]
+        SamoaTime = 8
+    }
 }
