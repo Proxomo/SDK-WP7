@@ -13,11 +13,13 @@ using System.Collections.Generic;
 
 namespace Proxomo //ProxomoWP7SDK
 {
+
+
     // This delegate is used to receive the actual event handler (callback) that the Top App wants to call
     // when initialization is complete. This is necessary since the user cannot register to listen until AFTER the 
     // SDK instance is created (constructor). Therefore, we need to register it for him within the constructor -- AFTER the 
     // SDK instance is created and BEFORE we make the call to init (to get the token).
-    public delegate void UserInitCompleteHandler(object value);
+    //public delegate void UserInitCompleteHandler(object value);
 
     // This delegate is used INTERNALLY within this SDK to implement callbacks to raise appropriate events
     // that the use can register to listen to for each Proxomo method
@@ -45,7 +47,9 @@ namespace Proxomo //ProxomoWP7SDK
     public delegate void ProxomoPersonResultEventHandler(ItemCompletedEventArgs<Person> results);
     public delegate void ProxomoListOfSocialNetworkInfoEventHandler(ItemCompletedEventArgs<List<SocialNetworkInfo>> results);
 
-    public delegate void ProxomoGenericResultEventHandler<T>(ItemCompletedEventArgs<T> results);
+    public delegate void ProxomoUserCallbackDelegate<T>(ItemCompletedEventArgs<T> results); // define 'signature' for a fnc that has void return and 
+                                                                                                 // as parameter has an ItemCompletedEventArgs obj
+
 
     #endregion
 
@@ -178,7 +182,7 @@ namespace Proxomo //ProxomoWP7SDK
 
             using (ProxomoWebRequest<Token> p = new ProxomoWebRequest<Token>(ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, InitializationReady);
+                p.GetDataItemOLD(url, "GET", contentType, "", InitializationReady, 111);
                 // add timeout handling... 
             }
         }
@@ -214,8 +218,6 @@ namespace Proxomo //ProxomoWP7SDK
         public event ProxomoStringResultEventHandler CustomDataAdd_Complete;
         public event ProxomoStringResultEventHandler CustomDataUpdate_Complete;
         public event ProxomoStringResultEventHandler CustomDataDelete_Complete;
-        public event ProxomoGenericResultEventHandler<object> CustomDataSearch_Complete;
-        public event ProxomoGenericResultEventHandler<object> CustomDataGet_Complete;
 
         public event ProxomoStringResultEventHandler EventAdd_Complete;
         public event ProxomoEventResultEventHandler EventGet_Complete;
@@ -338,20 +340,20 @@ namespace Proxomo //ProxomoWP7SDK
                 this.CustomDataDelete_Complete(e);
             }
         }
-        private void CustomDataSearchReady(ItemCompletedEventArgs<object> e)
-        {
-            if (this.CustomDataSearch_Complete != null)
-            {
-                this.CustomDataSearch_Complete(e);
-            }
-        }
-        private void CustomDataGetReady(ItemCompletedEventArgs<object> e)
-        {
-            //if (this.CustomDataGet_Complete != null)
-            //{
-            //    this.CustomDataGet_Complete(e);
-            //}
-        }
+        //private void CustomDataSearchReady(ItemCompletedEventArgs<object> e)
+        //{
+        //    if (this.CustomDataSearch_Complete != null)
+        //    {
+        //        this.CustomDataSearch_Complete(e);
+        //    }
+        //}
+        //private void CustomDataGetReady(ItemCompletedEventArgs<object> e)
+        //{
+        //    //if (this.CustomDataGet_Complete != null)
+        //    //{
+        //    //    this.CustomDataGet_Complete(e);
+        //    //}
+        //}
 
         private void EventAddReady(ItemCompletedEventArgs<string> e)
         { if (this.EventAdd_Complete != null) { this.EventAdd_Complete(e); } }
@@ -497,58 +499,58 @@ namespace Proxomo //ProxomoWP7SDK
         #region Proxomo Methods
         #region AppData Methods
 
-        public void AppDataAdd(AppData appData)
+        public void AppDataAdd(AppData appData, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/appdata", baseURL);
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "POST", contentType, Converter.Convert(appData, Format, false), AppDataAddReady);
+                p.GetDataItem(url, "POST", contentType, Converter.Convert(appData, Format, false), userCallback);
             }
         }
-        public void AppDataDelete(string appDataID)
+        public void AppDataDelete(string appDataID, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/appdata/{1}", baseURL, appDataID);
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "DELETE", contentType, "", AppDataDeleteReady);
+                p.GetDataItem(url, "DELETE", contentType, "", userCallback);
             }
         }
-        public void AppDataGet(string appDataID)
+        public void AppDataGet(string appDataID, ProxomoUserCallbackDelegate<AppData> userCallback)
         {
             string url = string.Format("{0}/appdata/{1}", baseURL, appDataID);
 
             using (ProxomoWebRequest<AppData> p = new ProxomoWebRequest<AppData>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, "", AppDataGetReady);
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
             }
         }
-        public void AppDataGetAll()
+        public void AppDataGetAll(ProxomoUserCallbackDelegate<List<AppData>> userCallback)
         {
             string url = string.Format("{0}/appdata", baseURL);
 
             using (ProxomoWebRequest<List<AppData>> p = new ProxomoWebRequest<List<AppData>>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, "", AppDataGetAllReady);
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
             }
         }
-        public void AppDataUpdate(AppData appData)
+        public void AppDataUpdate(AppData appData, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/appdata", baseURL);
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "PUT", contentType, Converter.Convert(appData, Format, false), AppDataUpdateReady);
+                p.GetDataItem(url, "PUT", contentType, Converter.Convert(appData, Format, false), userCallback);
             }
         }
-        public void AppDataSearch(string objectType)
+        public void AppDataSearch(string objectType, ProxomoUserCallbackDelegate<List<AppData>> userCallback)
         {
             string url = string.Format("{0}/appdata/search/objecttype/{1}", baseURL, objectType);
 
             using (ProxomoWebRequest<List<AppData>> p = new ProxomoWebRequest<List<AppData>>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, "", AppDataSearchReady);
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
             }
         }
 
@@ -556,69 +558,91 @@ namespace Proxomo //ProxomoWP7SDK
 
         #region CustomDataStorage
 
-        public void CustomDataAdd<T>(T data)
+        public void CustomDataAdd<T>(T data, ProxomoUserCallbackDelegate<string> userCallback)
         {
+            string url = string.Format("{0}/customdata", baseURL);
+                
+            ContinuationTokens cTokens = new ContinuationTokens("", "");
             
-            string url = string.Format("{0}/customdata", baseURL);
-
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "POST", contentType, Converter.Convert(data, Format, false), CustomDataAddReady);
+                p.GetDataItem(url, "POST", contentType, Converter.Convert(data, Format, false), userCallback);
             }
         }
-        public void CustomDataUpdate<T>(T data)
+        public void CustomDataUpdate<T>(T data, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/customdata", baseURL);
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "PUT", contentType, Converter.Convert(data, Format, false), CustomDataUpdateReady);
+                p.GetDataItem(url, "PUT", contentType, Converter.Convert(data, Format, false), userCallback);
             }
         }
-        public void CustomDataDelete(string tableName, string customDataID)
+        public void CustomDataDelete(string tableName, string customDataID, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/customdata/table/{1}/{2}", baseURL, tableName, customDataID);
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "DELETE", contentType, CustomDataDeleteReady);
+                p.GetDataItem(url, "DELETE", contentType, "", userCallback);
             }
         }
-        public void CustomDataSearch<T>(string tableName, string query, int maxResults, ref ContinuationTokens cTokens)
+        //public void CustomDataSearch<T>(string tableName, string query, int maxResults, ref ContinuationTokens cTokens)
+        //{
+        //    string url = string.Format("{0}/customdata/search/table/{1}?q={2}&maxresults={3}", baseURL, tableName, query, maxResults);
+
+        //    using (ProxomoWebRequest<object> p = new ProxomoWebRequest<object>(AuthToken.AccessToken, ValidateSSLCert, Format))
+        //    {
+        //        //p.GetDataItem("", "", "", "", CustomDataSearchReady, ref cTokens);
+        //    }
+
+        //}
+        public void CustomDataSearch<T>(string tableName, string query, int maxResults, ProxomoUserCallbackDelegate<T> userCallback, ref ContinuationTokens cTokens)
         {
             string url = string.Format("{0}/customdata/search/table/{1}?q={2}&maxresults={3}", baseURL, tableName, query, maxResults);
 
-            using (ProxomoWebRequest<object> p = new ProxomoWebRequest<object>(AuthToken.AccessToken, ValidateSSLCert, Format))
+            using (ProxomoWebRequest<T> p = new ProxomoWebRequest<T>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem("", "", "", "", CustomDataSearchReady, ref cTokens);
+                p.GetDataItem(url, "GET", contentType, "", userCallback, ref cTokens);
             }
 
         }
-        public void CustomDataGet<T>(string tableName, string customDataID)
-        {
+        //public void CustomDataGet<T>(string tableName, string customDataID)
+        //{
+        //    string url = string.Format("{0}/customdata/table/{1}/{2}", baseURL, tableName, customDataID);
+
+        //    using (ProxomoWebRequest<object> p = new ProxomoWebRequest<object>(AuthToken.AccessToken, ValidateSSLCert, Format))
+        //    {
+        //        p.GetDataItem(url, "GET", contentType, CustomDataGetReady);
+        //    }
+        //}
+        public void CustomDataGet<T>(string tableName, string customDataID, ProxomoUserCallbackDelegate<T> userCallback)
+        { 
             string url = string.Format("{0}/customdata/table/{1}/{2}", baseURL, tableName, customDataID);
 
-            using (ProxomoWebRequest<object> p = new ProxomoWebRequest<object>(AuthToken.AccessToken, ValidateSSLCert, Format))
+            using (ProxomoWebRequest<T> p = new ProxomoWebRequest<T>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, CustomDataGetReady);
+                ContinuationTokens cTokens = new ContinuationTokens("", "");
+
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
+
             }
         }
-
 
         #endregion
 
         #region    Event Methods
 
-        public void EventAdd(Event evt)
+        public void EventAdd(Event evt, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/event", baseURL);
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "POST", contentType, Converter.Convert(evt, Format, false), EventAddReady);
+                p.GetDataItem(url, "POST", contentType, Converter.Convert(evt, Format, false), userCallback);
             }
         }
-        public void EventGet(string eventID)
+        public void EventGet(string eventID, ProxomoUserCallbackDelegate<Event> userCallback)
         {
             string url =
                 string.Format("{0}/event/{1}",
@@ -627,19 +651,19 @@ namespace Proxomo //ProxomoWP7SDK
 
             using (ProxomoWebRequest<Event> p = new ProxomoWebRequest<Event>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", "EventGet: ...", "", EventGetReady);
+                p.GetDataItem(url, "GET", "EventGet: ...", "", userCallback);
             }
         }
-        public void EventUpdate(Event evt)
+        public void EventUpdate(Event evt, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/event", baseURL);
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "PUT", contentType, Converter.Convert(evt, Format, false), EventUpdateReady);
+                p.GetDataItem(url, "PUT", contentType, Converter.Convert(evt, Format, false), userCallback);
             }
         }
-        public void EventsSearchByDistance(decimal latitude, decimal longitude, decimal distance, DateTime starttime, DateTime endtime, string eventType = "")
+        public void EventsSearchByDistance(decimal latitude, decimal longitude, decimal distance, DateTime starttime, DateTime endtime, ProxomoUserCallbackDelegate<List<Event>> userCallback, string eventType = "")
         {
             string url = null;
 
@@ -655,10 +679,10 @@ namespace Proxomo //ProxomoWP7SDK
 
             using (ProxomoWebRequest<List<Event>> p = new ProxomoWebRequest<List<Event>>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, "", EventsSearchByDistanceReady);
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
             }
         }
-        public void EventsSearchByPersonID(string personID, DateTime starttime, DateTime endtime, string eventType = "")
+        public void EventsSearchByPersonID(string personID, DateTime starttime, DateTime endtime, ProxomoUserCallbackDelegate<List<Event>> userCallback, string eventType = "")
         {
             string url = null;
 
@@ -674,7 +698,7 @@ namespace Proxomo //ProxomoWP7SDK
 
             using (ProxomoWebRequest<List<Event>> p = new ProxomoWebRequest<List<Event>>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, "", EventsSearchByPersonIDReady);
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
             }
         }
 
@@ -682,7 +706,7 @@ namespace Proxomo //ProxomoWP7SDK
 
         #region EventComment Methods
 
-        public void EventCommentAdd(string eventID, EventComment comment)
+        public void EventCommentAdd(string eventID, EventComment comment, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/event/{1}/comment", baseURL, eventID);
 
@@ -691,7 +715,7 @@ namespace Proxomo //ProxomoWP7SDK
                 p.GetDataItem(url, "POST", contentType, Converter.Convert(comment, Format, false), EventCommentAddReady);
             }
         }
-        public void EventCommentsGet(string eventID)
+        public void EventCommentsGet(string eventID, ProxomoUserCallbackDelegate<List<EventComment>> userCallback)
         {
             string url = string.Format("{0}/event/{1}/comments", baseURL, eventID);
 
@@ -700,7 +724,7 @@ namespace Proxomo //ProxomoWP7SDK
                 p.GetDataItem(url, "GET", contentType, "", EventCommentsGetReady);
             }
         }
-        public void EventCommentUpdate(string eventID, EventComment comment)
+        public void EventCommentUpdate(string eventID, EventComment comment, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/event/{1}/comment", baseURL, eventID);
 
@@ -709,7 +733,7 @@ namespace Proxomo //ProxomoWP7SDK
                 p.GetDataItem(url, "PUT", contentType, Converter.Convert(comment, Format, false), EventUpdateReady);
             }
         }
-        public void EventCommentDelete(string eventID, string commentID)
+        public void EventCommentDelete(string eventID, string commentID, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/event/{1}/comment/{2}", baseURL, eventID, commentID);
 
@@ -723,26 +747,26 @@ namespace Proxomo //ProxomoWP7SDK
 
         #region Event Participant Methods
 
-        public void EventParticipantsGet(string eventID)
+        public void EventParticipantsGet(string eventID, ProxomoUserCallbackDelegate<List<EventParticipant>> userCallback)
         {
             string url = string.Format("{0}/event/{1}/participants", baseURL, eventID);
 
             using (ProxomoWebRequest<List<EventParticipant>> p = new ProxomoWebRequest<List<EventParticipant>>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, "", EventParticipantsGetReady);
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
             }
         }
-        public void EventParticipantInvite(string eventID, string personID)
+        public void EventParticipantInvite(string eventID, string personID, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/event/{1}/participant/invite/personid/{2}", baseURL, eventID, personID);
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "PUT", contentType, "", EventParticipantInviteReady);
+                p.GetDataItem(url, "PUT", contentType, "", userCallback);
             }
         }
 
-        public void EventParticipantsInvite(string eventID, string[] personIDs)
+        public void EventParticipantsInvite(string eventID, string[] personIDs, ProxomoUserCallbackDelegate<string> userCallback)
         {
 
             var personIDstoStrArray = string.Join(",", personIDs);
@@ -751,36 +775,36 @@ namespace Proxomo //ProxomoWP7SDK
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "PUT", contentType, "", EventParticipantsInviteReady);
+                p.GetDataItem(url, "PUT", contentType, "", userCallback);
             }
 
         }
-        public void EventParticipantDelete(string eventID, string participantID)
+        public void EventParticipantDelete(string eventID, string participantID, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/event/{1}/participant/{2}", baseURL, eventID, participantID);
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "DELETE", contentType, "", EventParticipantDeleteReady);
+                p.GetDataItem(url, "DELETE", contentType, "", userCallback);
             }
         }
 
-        public void EventRequestInvitation(string eventID, string personID)
+        public void EventRequestInvitation(string eventID, string personID, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/event/{1}/requestinvite/personid/{2}", baseURL, eventID, personID);
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "PUT", contentType, "", EventRequestInvitationReady);
+                p.GetDataItem(url, "PUT", contentType, "", userCallback);
             }
         }
-        public void EventRSVP(string eventID, EventParticipantStatus participantStatus, string personID)
+        public void EventRSVP(string eventID, EventParticipantStatus participantStatus, string personID, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/event/{1}/RSVP/personid/{2}/participantstatus/{3}", baseURL, eventID, personID, Convert.ToInt16(participantStatus));
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "PUT", contentType, "", EventRSVPReady);
+                p.GetDataItem(url, "PUT", contentType, "", userCallback);
             }
         }
 
@@ -789,49 +813,49 @@ namespace Proxomo //ProxomoWP7SDK
 
         # region EventAppData Methods
 
-        public void EventAppDataAdd(string eventID, AppData aData)
+        public void EventAppDataAdd(string eventID, AppData aData, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/event/{1}/appdata", baseURL, eventID);
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "POST", contentType, Converter.Convert(aData, Format, false), EventAppDataAddReady);
+                p.GetDataItem(url, "POST", contentType, Converter.Convert(aData, Format, false), userCallback);
             }
         }
-        public void EventAppDataDelete(string eventID, string appDataID)
+        public void EventAppDataDelete(string eventID, string appDataID, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/event/{1}/appdata/{2}", baseURL, eventID, appDataID);
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "DELETE", contentType, EventAppDataDeleteReady);
+                p.GetDataItem(url, "DELETE", contentType, "", userCallback);
             }
         }
-        public void EventAppDataGet(string eventID, string appDataID)
+        public void EventAppDataGet(string eventID, string appDataID, ProxomoUserCallbackDelegate<AppData> userCallback)
         {
             string url = string.Format("{0}/event/{1}/appdata/{2}", baseURL, eventID, appDataID);
 
             using (ProxomoWebRequest<AppData> p = new ProxomoWebRequest<AppData>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, EventAppDataGetReady);
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
             }
         }
-        public void EventAppDataGetAll(string eventID)
+        public void EventAppDataGetAll(string eventID, ProxomoUserCallbackDelegate<List<AppData>> userCallback)
         {
             string url = string.Format("{0}/event/{1}/appdata", baseURL, eventID);
 
             using (ProxomoWebRequest<List<AppData>> p = new ProxomoWebRequest<List<AppData>>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, EventAppDataGetAllReady);
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
             }
         }
-        public void EventAppDataUpdate(string eventID, AppData aData)
+        public void EventAppDataUpdate(string eventID, AppData aData, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/event/{1}/appdata", baseURL, eventID);
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "PUT", contentType, Converter.Convert(aData, Format, false), EventAppDataUpdateReady);
+                p.GetDataItem(url, "PUT", contentType, Converter.Convert(aData, Format, false), userCallback);
             }
         }
 
@@ -839,59 +863,59 @@ namespace Proxomo //ProxomoWP7SDK
 
         #region Friend Methods
 
-        public void FriendsGet(string personID)
+        public void FriendsGet(string personID, ProxomoUserCallbackDelegate<List<Friend>> userCallback)
         {
             string url = string.Format("{0}/friends/personid/{1}", baseURL, personID);
 
             using (ProxomoWebRequest<List<Friend>> p = new ProxomoWebRequest<List<Friend>>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, "", FriendsGetReady);
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
             }
         }
-        public void FriendInvite(string friendA, string friendB)
+        public void FriendInvite(string friendA, string friendB, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/friend/invite/frienda/{1}/friendb/{2}", baseURL, friendA, friendB);
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "PUT", contentType, "", FriendInviteReady);
+                p.GetDataItem(url, "PUT", contentType, "", userCallback);
             }
         }
-        public void FriendBySocialNetworkInvite(SocialNetwork socialnetwork, string frienda, string friendb)
+        public void FriendBySocialNetworkInvite(SocialNetwork socialnetwork, string frienda, string friendb, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/friend/invite/frienda/{1}/friendb/{2}/socialnetwork/{3}", baseURL, frienda, friendb, Convert.ToInt16(socialnetwork));
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "PUT", contentType, "", FriendBySocialNetworkInviteReady);
+                p.GetDataItem(url, "PUT", contentType, "", userCallback);
             }
         }
-        public void FriendRespond(FriendResponse response, string friendA, string friendB)
+        public void FriendRespond(FriendResponse response, string friendA, string friendB, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/friend/respond/frienda/{1}/friendb/{2}/friendresponse/{3}", baseURL, friendA, friendB, Convert.ToInt16(response));
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "PUT", contentType, "", FriendRespondReady);
+                p.GetDataItem(url, "PUT", contentType, "", userCallback);
             }
         }
-        public void FriendsSocialNetworkGet(SocialNetwork socialNetwork, string personID)
+        public void FriendsSocialNetworkGet(SocialNetwork socialNetwork, string personID, ProxomoUserCallbackDelegate<List<SocialNetworkFriend>> userCallback)
         {
 
             string url = string.Format("{0}/friends/personid/{1}/socialnetwork/{2}", baseURL, personID, Convert.ToInt16(socialNetwork));
 
             using (ProxomoWebRequest<List<SocialNetworkFriend>> p = new ProxomoWebRequest<List<SocialNetworkFriend>>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, "", FriendsSocialNetworkGetReady);
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
             }
         }
-        public void FriendsSocialNetworkAppGet(SocialNetwork socialNetwork, string personID)
+        public void FriendsSocialNetworkAppGet(SocialNetwork socialNetwork, string personID, ProxomoUserCallbackDelegate<List<SocialNetworkPFriend>> userCallback)
         {
             string url = string.Format("{0}/friends/app/personid/{1}/socialnetwork/{2}", baseURL, personID, Convert.ToInt16(socialNetwork));
 
             using (ProxomoWebRequest<List<SocialNetworkPFriend>> p = new ProxomoWebRequest<List<SocialNetworkPFriend>>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, "", FriendsSocialNetworkAppGetReady);
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
             }
         }
 
@@ -899,7 +923,7 @@ namespace Proxomo //ProxomoWP7SDK
 
         #region GeoCode Methods
 
-        public void GeoCodebyAddress(string address)
+        public void GeoCodebyAddress(string address, ProxomoUserCallbackDelegate<GeoCode> userCallback)
         {
             string url = string.Format("{0}/geo/lookup/address/{1}", baseURL, HttpUtility.UrlEncode(address)); // Perform URL encoding since address can have spaces, commas, etc.
 
@@ -909,7 +933,7 @@ namespace Proxomo //ProxomoWP7SDK
             }
 
         }
-        public void ReverseGeoCode(string latitude, string longitude)
+        public void ReverseGeoCode(string latitude, string longitude, ProxomoUserCallbackDelegate<Location> userCallback)
         {
             string url = string.Format("{0}/geo/lookup/latitude/{1}/longitude/{2}", baseURL, latitude, longitude);
 
@@ -919,7 +943,7 @@ namespace Proxomo //ProxomoWP7SDK
             }
 
         }
-        public void GeoCodeByIPAddress(string ipAddress)
+        public void GeoCodeByIPAddress(string ipAddress, ProxomoUserCallbackDelegate<GeoIP> userCallback)
         {
             string url = string.Format("{0}/geo/lookup/ip/{1}", baseURL, ipAddress);
 
@@ -934,79 +958,79 @@ namespace Proxomo //ProxomoWP7SDK
 
         #region Location Methods
 
-        public void LocationAdd(Location location)
+        public void LocationAdd(Location location, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/location", baseURL);
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "POST", contentType, Converter.Convert(location, Format, false), LocationAddReady);
+                p.GetDataItem(url, "POST", contentType, Converter.Convert(location, Format, false), userCallback);
             }
         }
-        public void LocationGet(string locationID)
+        public void LocationGet(string locationID, ProxomoUserCallbackDelegate < Location > userCallback)
         {
             string url = string.Format("{0}/location/{1}", baseURL, locationID);
 
             using (ProxomoWebRequest<Location> p = new ProxomoWebRequest<Location>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, "", LocationGetReady);
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
             }
 
         }
-        public void LocationUpdate(Location location)
+        public void LocationUpdate(Location location, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/location", baseURL);
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "PUT", contentType, Converter.Convert(location, Format, false), LocationUpdateReady);
+                p.GetDataItem(url, "PUT", contentType, Converter.Convert(location, Format, false), userCallback);
             }
         }
-        public void LocationDelete(string locationID)
+        public void LocationDelete(string locationID, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/location/{1}", baseURL, locationID);
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "DELETE", contentType, "", LocationDeleteReady);
+                p.GetDataItem(url, "DELETE", contentType, "", userCallback);
             }
         }
-        public void LocationCategoriesGet()
+        public void LocationCategoriesGet(ProxomoUserCallbackDelegate<List<Category>> userCallback)
         {
             string url = string.Format("{0}/location/categories", baseURL);
 
             using (ProxomoWebRequest<List<Category>> p = new ProxomoWebRequest<List<Category>>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, "", LocationCategoriesGetReady);
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
             }
         }
-        public void LocationsSearchByAddress(string address, string q = "", string category = "", double radius = 2, LocationSearchScope scope = LocationSearchScope.ApplicationOnly, int maxresults = 10, string personid = "")
+        public void LocationsSearchByAddress(string address, ProxomoUserCallbackDelegate<List<Location>> userCallback, string q = "", string category = "", double radius = 2, LocationSearchScope scope = LocationSearchScope.ApplicationOnly, int maxresults = 10, string personid = "")
         {
             string url = string.Format("{0}/locations/search", baseURL) + Utility.FormatQueryString(HttpUtility.UrlEncode(address), string.Empty, string.Empty, q, category, radius, scope, maxresults);
 
             using (ProxomoWebRequest<List<Location>> p = new ProxomoWebRequest<List<Location>>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, "", LocationsSearchByAddressReady);
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
             }
 
         }
-        public void LocationsSearchByGPS(string latitude, string longitude, string q = "", string category = "", double radius = 2, LocationSearchScope scope = LocationSearchScope.ApplicationOnly, int maxresults = 10, string personid = "")
+        public void LocationsSearchByGPS(string latitude, string longitude, ProxomoUserCallbackDelegate<List<Location>> userCallback, string q = "", string category = "", double radius = 2, LocationSearchScope scope = LocationSearchScope.ApplicationOnly, int maxresults = 10, string personid = "")
         {
             string url = string.Format("{0}/locations/search/latitude/{1}/longitude/{2}", baseURL, latitude, longitude) + Utility.FormatQueryString(string.Empty, string.Empty, string.Empty, q, category, radius, scope, maxresults, personid);
 
             using (ProxomoWebRequest<List<Location>> p = new ProxomoWebRequest<List<Location>>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, "", LocationsSearchByGPSReady);
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
             }
 
         }
-        public void LocationsSearchByIPAddress(string ipAddress, string q = "", string category = "", double radius = 2, LocationSearchScope scope = LocationSearchScope.ApplicationOnly, int maxresults = 10, string personid = "")
+        public void LocationsSearchByIPAddress(string ipAddress, ProxomoUserCallbackDelegate<List<Location>> userCallback, string q = "", string category = "", double radius = 2, LocationSearchScope scope = LocationSearchScope.ApplicationOnly, int maxresults = 10, string personid = "")
         {
             string url = string.Format("{0}/locations/search/ip/{1}", baseURL, ipAddress) + Utility.FormatQueryString(string.Empty, string.Empty, string.Empty, q, category, radius, scope, maxresults);
 
             using (ProxomoWebRequest<List<Location>> p = new ProxomoWebRequest<List<Location>>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, "", LocationsSearchByIPAddressReady);
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
             }
 
         }
@@ -1015,49 +1039,49 @@ namespace Proxomo //ProxomoWP7SDK
 
         #region Location AppData Methods
 
-        public void LocationAppDataAdd(string locationID, AppData aData)
+        public void LocationAppDataAdd(string locationID, AppData aData, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/location/{1}/appdata", baseURL, locationID);
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "POST", contentType, Converter.Convert(aData, Format, false), LocationAppDataAddReady);
+                p.GetDataItem(url, "POST", contentType, Converter.Convert(aData, Format, false), userCallback);
             }
         }
-        public void LocationAppDataDelete(string locationID, string appDataID)
+        public void LocationAppDataDelete(string locationID, string appDataID, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/location/{1}/appdata/{2}", baseURL, locationID, appDataID);
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "DELETE", contentType, LocationAppDataDeleteReady);
+                p.GetDataItem(url, "DELETE", contentType, "", userCallback);
             }
         }
-        public void LocationAppDataGet(string locationID, string appDataID)
+        public void LocationAppDataGet(string locationID, string appDataID, ProxomoUserCallbackDelegate<AppData> userCallback)
         {
             string url = string.Format("{0}/location/{1}/appdata/{2}", baseURL, locationID, appDataID);
 
             using (ProxomoWebRequest<AppData> p = new ProxomoWebRequest<AppData>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, LocationAppDataGetReady);
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
             }
         }
-        public void LocationAppDataGetAll(string locationID)
+        public void LocationAppDataGetAll(string locationID, ProxomoUserCallbackDelegate<List<AppData>> userCallback)
         {
             string url = string.Format("{0}/location/{1}/appdata", baseURL, locationID);
 
             using (ProxomoWebRequest<List<AppData>> p = new ProxomoWebRequest<List<AppData>>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, LocationAppDataGetAllReady);
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
             }
         }
-        public void LocationAppDataUpdate(string locationID, AppData aData)
+        public void LocationAppDataUpdate(string locationID, AppData aData, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/location/{1}/appdata", baseURL, locationID);
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "PUT", contentType, Converter.Convert(aData, Format, false), LocationAppDataUpdateReady);
+                p.GetDataItem(url, "PUT", contentType, Converter.Convert(aData, Format, false), userCallback);
             }
         }
 
@@ -1065,13 +1089,13 @@ namespace Proxomo //ProxomoWP7SDK
 
         #region Notification Methods
 
-        public void NotificationSend(Notification notification)
+        public void NotificationSend(Notification notification, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/notification", baseURL);
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "POST", contentType, Converter.Convert(notification, Format, false), NotificationSendReady);
+                p.GetDataItem(url, "POST", contentType, Converter.Convert(notification, Format, false), userCallback);
             }
         }
 
@@ -1079,88 +1103,88 @@ namespace Proxomo //ProxomoWP7SDK
 
         #region Person Methods
 
-        public void PersonGet(string personID)
+        public void PersonGet(string personID, ProxomoUserCallbackDelegate<Person> userCallback)
         {
             string url = string.Format("{0}/person/{1}", baseURL, personID);
 
             using (ProxomoWebRequest<Person> p = new ProxomoWebRequest<Person>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", string.Empty, "", PersonGetReady);
+                p.GetDataItem(url, "GET", string.Empty, "", userCallback);
             }
         }
-        public void PersonUpdate(Person person)
+        public void PersonUpdate(Person person, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/person", baseURL);
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "PUT", contentType, Converter.Convert(person, Format, false), PersonUpdateReady);
+                p.GetDataItem(url, "PUT", contentType, Converter.Convert(person, Format, false), userCallback);
             }
         }
 
-        public void PersonAppDataAdd(string personID, AppData aData)
+        public void PersonAppDataAdd(string personID, AppData aData, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/person/{1}/appdata", baseURL, personID);
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "POST", contentType, Converter.Convert(aData, Format, false), PersonAppDataAddReady);
+                p.GetDataItem(url, "POST", contentType, Converter.Convert(aData, Format, false), userCallback);
             }
         }
-        public void PersonAppDataGet(string personID, string appDataID)
+        public void PersonAppDataGet(string personID, string appDataID, ProxomoUserCallbackDelegate<AppData> userCallback)
         {
             string url = string.Format("{0}/person/{1}/appdata/{2}", baseURL, personID, appDataID);
 
             using (ProxomoWebRequest<AppData> p = new ProxomoWebRequest<AppData>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, "", PersonAppDataGetReady);
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
             }
         }
-        public void PersonAppDataGetAll(string personID)
+        public void PersonAppDataGetAll(string personID, ProxomoUserCallbackDelegate<List<AppData>> userCallback)
         {
             string url = string.Format("{0}/person/{1}/appdata", baseURL, personID);
 
             using (ProxomoWebRequest<List<AppData>> p = new ProxomoWebRequest<List<AppData>>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, "", PersonAppDataGetAllReady);
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
             }
         }
-        public void PersonAppDataDelete(string personID, string appDataID)
+        public void PersonAppDataDelete(string personID, string appDataID, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/person/{1}/appdata/{2}", baseURL, personID, appDataID);
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "DELETE", contentType, "", PersonAppDataDeleteReady);
+                p.GetDataItem(url, "DELETE", contentType, "", userCallback);
             }
         }
 
-        public void PersonAppDataUpdate(string personID, AppData aData)
+        public void PersonAppDataUpdate(string personID, AppData aData, ProxomoUserCallbackDelegate<string> userCallback)
         {
             string url = string.Format("{0}/person/{1}/appdata", baseURL, personID);
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "PUT", contentType, Converter.Convert(aData, Format, false), PersonAppDataUpdateReady);
+                p.GetDataItem(url, "PUT", contentType, Converter.Convert(aData, Format, false), userCallback);
             }
         }
-        public void PersonLocationsGet(string personID, string latitude = "", string longitude = "", double radius = 25, int maxresults = 25)
+        public void PersonLocationsGet(string personID, ProxomoUserCallbackDelegate<List<Location>> userCallback, string latitude = "", string longitude = "", double radius = 25, int maxresults = 25)
         {
             string url = string.Format("{0}/person/{1}/locations", baseURL, personID) + Utility.FormatQueryString(string.Empty, latitude, longitude, string.Empty, string.Empty, radius, LocationSearchScope.ApplicationOnly, maxresults);
 
             using (ProxomoWebRequest<List<Location>> p = new ProxomoWebRequest<List<Location>>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, "", PersonLocationsGetReady);
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
             }
 
         }
-        public void PersonSocialNetworkInfoGet(string personID, SocialNetwork socialNetwork)
+        public void PersonSocialNetworkInfoGet(string personID, SocialNetwork socialNetwork, ProxomoUserCallbackDelegate<List<SocialNetworkInfo>> userCallback)
         {
             string url = string.Format("{0}/person/{1}/socialnetworkinfo/socialnetwork/{2}", baseURL, personID, Convert.ToInt16(socialNetwork));
 
             using (ProxomoWebRequest<List<SocialNetworkInfo>> p = new ProxomoWebRequest<List<SocialNetworkInfo>>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, "", PersonSocialNetworkInfoGetReady);
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
             }
         }
 

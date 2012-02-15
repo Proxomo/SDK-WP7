@@ -21,6 +21,7 @@ namespace Proxomo
     internal class ProxomoWebRequest<t> : IDisposable
     {
         internal delegate void ProxomoCallbackItem(ItemCompletedEventArgs<t> e);
+        internal delegate void ProxomoGenericDelegate(ItemCompletedEventArgs<t> e);
 
         public string token = string.Empty;
         private bool _validateSSLCert = false;
@@ -50,16 +51,17 @@ namespace Proxomo
             this.Format = format;
         }
 
-        internal void GetDataItem(string url, string method, string contentType, ProxomoCallbackItem callBack)
-        {
-            GetDataItem(url, method, contentType, string.Empty, callBack);
-        }
+        //internal void GetDataItem(string url, string method, string contentType, ProxomoCallbackItem callBack)
+        //{
+        //    GetDataItem(url, method, contentType, string.Empty, callBack);
+        //}
 
-        internal void GetDataItem(string url, string method, string contentType, string content, ProxomoCallbackItem callBack)
+        internal void GetDataItemOLD(string url, string method, string contentType, string content, ProxomoCallbackItem callBack, int x)
         {
             RequestStateItem<t> state = new RequestStateItem<t>();
 
-            ContinuationTokens cTokens = null;
+            ContinuationTokens cTokens = new ContinuationTokens("", "");
+
             state.CallBack = callBack;
             state.Url = url;
             state.Method = method;
@@ -78,12 +80,22 @@ namespace Proxomo
             }
         }
 
-        internal void GetDataItem(string url, string method, string contentType, string content, ProxomoCallbackItem callBack, ref ContinuationTokens cTokens)
+
+        internal void GetDataItem(string url, string method, string contentType, string content, ProxomoUserCallbackDelegate<t> userCallback)
+        {
+            ContinuationTokens cTokens = new ContinuationTokens("", "");
+
+            GetDataItem(url, method, contentType, content, userCallback, ref cTokens);
+
+        }
+
+
+
+        internal void GetDataItem(string url, string method, string contentType, string content, ProxomoUserCallbackDelegate<t> userCallback, ref ContinuationTokens cTokens)
         {
             RequestStateItem<t> state = new RequestStateItem<t>();
 
-
-            state.CallBack = callBack;
+            state.UserCallback = userCallback;
             state.Url = url;
             state.Method = method;
             state.ContentType = contentType;
@@ -157,20 +169,20 @@ namespace Proxomo
         {
             RequestStateItem<t> state = (RequestStateItem<t>)asyncResult.AsyncState;
 
-            // Return back to caller the continuation tokens returned by the service response (if any) ... 
-            string NextPartitionKeyDescriptor = "NextPartitionKey";
-            string NextRowKeyDescriptor = "NextRowKey";
 
-            ContinuationTokens anycTokens = null;
-            anycTokens.NextPartitionKey = null;
-            anycTokens.NextRowKey = null;
-
-            anycTokens.NextPartitionKey = state.Response.Headers[NextPartitionKeyDescriptor];
-            anycTokens.NextRowKey = state.Response.Headers[NextRowKeyDescriptor];
 
             try
             {
                 state.Response = (HttpWebResponse)state.Request.EndGetResponse(asyncResult);
+
+                // Return back to caller the continuation tokens returned by the service response (if any) ... 
+                string NextPartitionKeyDescriptor = "NextPartitionKey";
+                string NextRowKeyDescriptor = "NextRowKey";
+
+                ContinuationTokens cTokensIfAny = new ContinuationTokens("", "");
+
+                cTokensIfAny.NextPartitionKey = state.Response.Headers[NextPartitionKeyDescriptor];
+                cTokensIfAny.NextRowKey = state.Response.Headers[NextRowKeyDescriptor];
 
                 using (Stream resultStream = state.Response.GetResponseStream())
                 {
@@ -183,7 +195,15 @@ namespace Proxomo
                         }
                         else if (this.Format == CommunicationType.JSON)
                         {
-                            state.CallBack(new ItemCompletedEventArgs<t> { Error = null, Result = ReturnJSON(sreader), cTokens=anycTokens});
+                            
+                            if (!(state.CallBack == null))
+                            {
+                                state.CallBack(new ItemCompletedEventArgs<t> { Error = null, Result = ReturnJSON(sreader), cTokens = cTokensIfAny });
+                            }
+                            else
+                            {
+                                state.UserCallback(new ItemCompletedEventArgs<t> { Error = null, Result = ReturnJSON(sreader), cTokens = cTokensIfAny });
+                            }
                         }
                         else
                         {

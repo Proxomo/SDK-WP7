@@ -1,7 +1,0 @@
-G:\backup_from_640GB\ProxomoDev\Proxomo\WP7\Bin\Debug\ProxomoWP7SDK.dll
-G:\backup_from_640GB\ProxomoDev\Proxomo\WP7\Bin\Debug\ProxomoWP7SDK.pdb
-G:\backup_from_640GB\ProxomoDev\Proxomo\WP7\obj\Debug\ResolveAssemblyReference.cache
-G:\backup_from_640GB\ProxomoDev\Proxomo\WP7\obj\Debug\ProxomoLoginControl.g.i.cs
-G:\backup_from_640GB\ProxomoDev\Proxomo\WP7\obj\Debug\ProxomoWP7SDK.g.resources
-G:\backup_from_640GB\ProxomoDev\Proxomo\WP7\obj\Debug\ProxomoWP7SDK.dll
-G:\backup_from_640GB\ProxomoDev\Proxomo\WP7\obj\Debug\ProxomoWP7SDK.pdb
