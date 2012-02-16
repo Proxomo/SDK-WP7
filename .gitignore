@@ -32,3 +32,4 @@ src/Bin/Debug/*
 *.scc
 *.vssscc
 obj/*
+obj/Debug/*
