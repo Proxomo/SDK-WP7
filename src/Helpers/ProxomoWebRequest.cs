@@ -137,8 +137,6 @@ namespace Proxomo
         {
             RequestStateItem<t> state = (RequestStateItem<t>)asyncResult.AsyncState;
 
-
-
             try
             {
                 state.Response = (HttpWebResponse)state.Request.EndGetResponse(asyncResult);
@@ -163,7 +161,6 @@ namespace Proxomo
                         }
                         else if (this.Format == CommunicationType.JSON)
                         {
-                            
                             if (!(state.CallBack == null))
                             {
                                 state.CallBack(new ItemCompletedEventArgs<t> { Error = null, Result = ReturnJSON(sreader), cTokens = cTokensIfAny });
@@ -177,8 +174,21 @@ namespace Proxomo
                         {
                             state.CallBack(new ItemCompletedEventArgs<t> { Error = null, Result = default(t) });
                         }
+                        sreader.Close();  //Fix for Windows Phone network bug
                     }
+                    resultStream.Close();  //Fix for Windows Phone network bug
                 }
+                state.Response.Close();  //Fix for Windows Phone network bug
+                state.Response = null;
+                state = null;
+            }
+            catch (NullReferenceException nullex)
+            {
+                state.CallBack(new ItemCompletedEventArgs<t> { Error = nullex, Result = default(t) });
+            }
+            catch (WebException webex)
+            {
+                state.CallBack(new ItemCompletedEventArgs<t> { Error = webex, Result = default(t) });
             }
             catch (Exception ex)
             {
