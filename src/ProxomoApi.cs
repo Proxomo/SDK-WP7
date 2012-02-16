@@ -8,51 +8,26 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
+using System.Threading;
 
 using System.Collections.Generic;
 
-namespace Proxomo //ProxomoWP7SDK
+namespace Proxomo
 {
 
 
-    // This delegate is used to receive the actual event handler (callback) that the Top App wants to call
+    // DELETE.... This delegate is used to receive the actual event handler (callback) that the Top App wants to call
     // when initialization is complete. This is necessary since the user cannot register to listen until AFTER the 
     // SDK instance is created (constructor). Therefore, we need to register it for him within the constructor -- AFTER the 
     // SDK instance is created and BEFORE we make the call to init (to get the token).
     //public delegate void UserInitCompleteHandler(object value);
 
-    // This delegate is used INTERNALLY within this SDK to implement callbacks to raise appropriate events
+    // DELETE... This delegate is used INTERNALLY within this SDK to implement callbacks to raise appropriate events
     // that the use can register to listen to for each Proxomo method
-    public delegate void ProxomoCallback(object value);
+    //public delegate void ProxomoCallback(object value);
 
-   # region Proxomo Events: (1) Define a delegate type (function signature) FOR EACH TYPE OF RESULT that methods can return
-
-    public delegate void ProxomoStringResultEventHandler(ItemCompletedEventArgs<string> results);
-    public delegate void ProxomoTokenResultEventHandler(ItemCompletedEventArgs<Token> results);
-    public delegate void ProxomoAppDataResultEventHandler(ItemCompletedEventArgs<AppData> results);
-    public delegate void ProxomoListAppDataResultEventHandler(ItemCompletedEventArgs<List<AppData>> results);
-    public delegate void ProxomoEventResultEventHandler(ItemCompletedEventArgs<Event> results);
-    public delegate void ProxomoListOfEventResultEventHandler(ItemCompletedEventArgs<List<Event>> results);
-    public delegate void ProxomoEventCommentsResultEventHandler(ItemCompletedEventArgs<List<EventComment>> results);
-    public delegate void ProxomoListOfEventParticipantResultEventHandler(ItemCompletedEventArgs<List<EventParticipant>> results);
-    public delegate void ProxomoEventParticipantResultEventHandler(ItemCompletedEventArgs<EventParticipant> results);
-    public delegate void ProxomoListOfFriendResultEventHandler(ItemCompletedEventArgs<List<Friend>> results);
-    public delegate void ProxomoListOfSocialNetworkFriendEventHandler(ItemCompletedEventArgs<List<SocialNetworkFriend>> results);
-    public delegate void ProxomoListOfSocialNetworkPFriendEventHandler(ItemCompletedEventArgs<List<SocialNetworkPFriend>> results);
-    public delegate void ProxomoGeoCodeResultEventHandler(ItemCompletedEventArgs<GeoCode> results);
-    public delegate void ProxomoLocationResultEventHandler(ItemCompletedEventArgs<Location> results);
-    public delegate void ProxomoGeoCodeByIPAddressEventHandler(ItemCompletedEventArgs<GeoIP> results);
-    public delegate void ProxomoListOfCategoryResultEventHandler(ItemCompletedEventArgs<List<Category>> results);
-    public delegate void ProxomoListOfLocationResultEventHandler(ItemCompletedEventArgs<List<Location>> results);
-    public delegate void ProxomoPersonResultEventHandler(ItemCompletedEventArgs<Person> results);
-    public delegate void ProxomoListOfSocialNetworkInfoEventHandler(ItemCompletedEventArgs<List<SocialNetworkInfo>> results);
-
-    public delegate void ProxomoUserCallbackDelegate<T>(ItemCompletedEventArgs<T> results); // define 'signature' for a fnc that has void return and 
-                                                                                                 // as parameter has an ItemCompletedEventArgs obj
-
-
-    #endregion
-
+    public delegate void ProxomoUserCallbackDelegate<T>(ItemCompletedEventArgs<T> results);     
+     
     public partial class ProxomoApi
     {
         internal static string _applicationID = string.Empty;
@@ -126,18 +101,22 @@ namespace Proxomo //ProxomoWP7SDK
 
         #region SDK Constructors and AuthToken management
 
-        public ProxomoApi(string applicationID, string proxomoAPIKey, ProxomoTokenResultEventHandler callback, CommunicationType format = CommunicationType.JSON, bool validatessl = true, string url = "")
+        public ProxomoApi(string applicationID, string proxomoAPIKey,CommunicationType format = CommunicationType.JSON, bool validatessl = true, string url = "")
         {
-            this.Initialization_Complete += new ProxomoTokenResultEventHandler(callback);
-            Init(applicationID, proxomoAPIKey, "v09", format, validatessl, url);
+            // We will pass into Init a delegate callback to call when the Init operation is complete.
+            // The reason is that we need to set the private fields we use to store both the Auth Token value as well as its expiration date before returning back to user
+            ProxomoUserCallbackDelegate<Token> InitComplete_Callback = new ProxomoUserCallbackDelegate<Token>(InitializationReady);
+            Init(applicationID, proxomoAPIKey, "v09", format, validatessl, url, InitComplete_Callback);
         }
-        public ProxomoApi(string applicationID, string proxomoAPIKey, string version, ProxomoTokenResultEventHandler callback, CommunicationType format = CommunicationType.JSON, bool validatessl = true, string url = "")
+        public ProxomoApi(string applicationID, string proxomoAPIKey, string version, CommunicationType format = CommunicationType.JSON, bool validatessl = true, string url = "")
         {
-            this.Initialization_Complete += new ProxomoTokenResultEventHandler(callback);
-            Init(applicationID, proxomoAPIKey, version, format, validatessl, url);
+            // We will pass into Init a delegate callback to call when the Init operation is complete.
+            // The reason is that we need to set the private fields we use to store both the Auth Token value as well as its expiration date before returning back to user
+            ProxomoUserCallbackDelegate<Token> InitComplete_Callback = new ProxomoUserCallbackDelegate<Token>(InitializationReady);
+            Init(applicationID, proxomoAPIKey, version, format, validatessl, url, InitComplete_Callback);
         }
 
-        private void Init(string applicationID, string proxomoAPIKey, string version, CommunicationType format, bool validatessl, string url)
+        private void Init(string applicationID, string proxomoAPIKey, string version, CommunicationType format, bool validatessl, string url, ProxomoUserCallbackDelegate<Token> initCompleteCallback)
         {
             APIVersion = version;
             _applicationID = applicationID;
@@ -173,22 +152,27 @@ namespace Proxomo //ProxomoWP7SDK
                 }
             }
 
-            GetAuthToken();
+            GetAuthToken(initCompleteCallback);
         }
 
-        private void GetAuthToken()
+        private void GetAuthToken(ProxomoUserCallbackDelegate<Token> initCompleteCallback)
         {
             string url = string.Format("{0}/security/accesstoken/get?applicationid={1}&proxomoAPIKey={2}", baseURL, HttpUtility.UrlEncode(_applicationID), HttpUtility.UrlEncode(_proxomoAPIKey));
 
             using (ProxomoWebRequest<Token> p = new ProxomoWebRequest<Token>(ValidateSSLCert, Format))
             {
-                p.GetDataItemOLD(url, "GET", contentType, "", InitializationReady, 111);
+                // We will pass into Init a delegate callback to call when the Init operation is complete.
+                // The reason is that we need to set the private fields we use to store both the Auth Token value as well as its expiration date before returning back to user
+                p.GetDataItem(url, "GET", contentType, "", initCompleteCallback);
                 // add timeout handling... 
             }
         }
         public void RefreshAuthToken()
         {
-            GetAuthToken();
+            // We will pass into Init a delegate callback to call when the Init operation is complete.
+            // The reason is that we need to set the private fields we use to store both the Auth Token value as well as its expiration date before returning back to user
+            ProxomoUserCallbackDelegate<Token> InitComplete_Callback = new ProxomoUserCallbackDelegate<Token>(InitializationReady);
+            GetAuthToken(InitComplete_Callback);
         }
         public bool IsAuthTokenExpired()
         {
@@ -203,298 +187,12 @@ namespace Proxomo //ProxomoWP7SDK
         }
 
         #endregion
-
-        #region Proxomo Events: (2) Declare the events that the user can listen to
-
-        public event ProxomoTokenResultEventHandler Initialization_Complete;
-
-        public event ProxomoStringResultEventHandler AppDataAdd_Complete;
-        public event ProxomoStringResultEventHandler AppDataDelete_Complete;
-        public event ProxomoAppDataResultEventHandler AppDataGet_Complete;
-        public event ProxomoListAppDataResultEventHandler AppDataGetAll_Complete;
-        public event ProxomoStringResultEventHandler AppDataUpdate_Complete;
-        public event ProxomoListAppDataResultEventHandler AppDataSearch_Complete;
-
-        public event ProxomoStringResultEventHandler CustomDataAdd_Complete;
-        public event ProxomoStringResultEventHandler CustomDataUpdate_Complete;
-        public event ProxomoStringResultEventHandler CustomDataDelete_Complete;
-
-        public event ProxomoStringResultEventHandler EventAdd_Complete;
-        public event ProxomoEventResultEventHandler EventGet_Complete;
-        public event ProxomoStringResultEventHandler EventUpdate_Complete;
-        public event ProxomoListOfEventResultEventHandler EventsSearchByDistance_Complete;
-        public event ProxomoListOfEventResultEventHandler EventsSearchByPersonID_Complete;
-
-        public event ProxomoStringResultEventHandler EventCommentAdd_Complete;
-        public event ProxomoStringResultEventHandler EventCommentDelete_Complete;
-        public event ProxomoEventCommentsResultEventHandler EventCommentsGet_Complete;
-        public event ProxomoStringResultEventHandler EventCommentUpdate_Complete;
-
-        public event ProxomoListOfEventParticipantResultEventHandler EventParticipantsGet_Complete;
-        public event ProxomoStringResultEventHandler EventParticipantInvite_Complete;
-        public event ProxomoStringResultEventHandler EventParticipantsInvite_Complete;
-        public event ProxomoStringResultEventHandler EventParticipantsDelete_Complete;
-        public event ProxomoStringResultEventHandler EventRequestInvitation_Complete;
-        public event ProxomoStringResultEventHandler EventRSVP_Complete;
-
-        public event ProxomoStringResultEventHandler EventAppDataAdd_Complete;
-        public event ProxomoStringResultEventHandler EventAppDataDelete_Complete;
-        public event ProxomoAppDataResultEventHandler EventAppDataGet_Complete;
-        public event ProxomoListAppDataResultEventHandler EventAppDataGetAll_Complete;
-        public event ProxomoStringResultEventHandler EventAppDataUpdate_Complete;
-
-        public event ProxomoListOfFriendResultEventHandler FriendsGet_Complete;
-        public event ProxomoStringResultEventHandler FriendInvite_Complete;
-        public event ProxomoStringResultEventHandler FriendBySocialNetworkInvite_Complete;
-        public event ProxomoStringResultEventHandler FriendRespond_Complete;
-        public event ProxomoListOfSocialNetworkFriendEventHandler FriendsSocialNetworkGet_Complete;
-        public event ProxomoListOfSocialNetworkPFriendEventHandler FriendsSocialNetworkAppGet_Complete;
-
-        public event ProxomoGeoCodeResultEventHandler GeoCodebyAddress_Complete;
-        public event ProxomoLocationResultEventHandler ReverseGeoCode_Complete;
-        public event ProxomoGeoCodeByIPAddressEventHandler GeoCodeByIPAddress_Complete;
-
-        public event ProxomoStringResultEventHandler LocationAdd_Complete;
-        public event ProxomoStringResultEventHandler LocationDelete_Complete;
-        public event ProxomoLocationResultEventHandler LocationGet_Complete;
-        public event ProxomoStringResultEventHandler LocationUpdate_Complete;
-        public event ProxomoListOfCategoryResultEventHandler LocationCategoriesGet_Complete;
-        public event ProxomoListOfLocationResultEventHandler LocationsSearchByAddress_Complete;
-        public event ProxomoListOfLocationResultEventHandler LocationsSearchByGPS_Complete;
-        public event ProxomoListOfLocationResultEventHandler LocationsSearchByIPAddress_Complete;
-
-        public event ProxomoStringResultEventHandler LocationAppDataAdd_Complete;
-        public event ProxomoStringResultEventHandler LocationAppDataDelete_Complete;
-        public event ProxomoAppDataResultEventHandler LocationAppDataGet_Complete;
-        public event ProxomoListAppDataResultEventHandler LocationAppDataGetAll_Complete;
-        public event ProxomoStringResultEventHandler LocationAppDataUpdate_Complete;
-
-        public event ProxomoStringResultEventHandler NotificationSend_Complete;
-
-        public event ProxomoPersonResultEventHandler PersonGet_Complete;
-        public event ProxomoStringResultEventHandler PersonUpdate_Complete;
-        public event ProxomoStringResultEventHandler PersonAppDataAdd_Complete;
-        public event ProxomoStringResultEventHandler PersonAppDataDelete_Complete;
-        public event ProxomoAppDataResultEventHandler PersonAppDataGet_Complete;
-        public event ProxomoListAppDataResultEventHandler PersonAppDataGetAll_Complete;
-        public event ProxomoStringResultEventHandler PersonAppDataUpdate_Complete;
-        public event ProxomoListOfLocationResultEventHandler PersonLocationsGet_Complete;
-        public event ProxomoListOfSocialNetworkInfoEventHandler PersonSocialNetworkInfoGet_Complete;
-
-        #endregion
-
-        #region Proxomo Events: (3) Define internal callbacks to raise each of the events declared earlier
-
+ 
         private void InitializationReady(ItemCompletedEventArgs<Token> e)
         {
             _AuthToken = (Token)e.Result;
             AuthToken.ExpiresDate = Utility.ConvertFromUnixTimestamp(AuthToken.Expires);
-
-            if (this.Initialization_Complete != null)
-            {
-                this.Initialization_Complete(e);
-            }
         }
-
-        private void AppDataAddReady(ItemCompletedEventArgs<string> e)
-        {
-            if (this.AppDataAdd_Complete != null)
-            {
-                this.AppDataAdd_Complete(e);
-            }
-        }
-        private void AppDataDeleteReady(ItemCompletedEventArgs<string> e)
-        { if (this.AppDataDelete_Complete != null) { this.AppDataDelete_Complete(e); } }
-        private void AppDataGetReady(ItemCompletedEventArgs<AppData> e)
-        {
-            if (this.AppDataGet_Complete != null)
-            {
-                this.AppDataGet_Complete(e);
-            }
-        }
-        private void AppDataGetAllReady(ItemCompletedEventArgs<List<AppData>> e)
-        { if (this.AppDataGetAll_Complete != null) { this.AppDataGetAll_Complete(e); } }
-        private void AppDataUpdateReady(ItemCompletedEventArgs<string> e)
-        { if (this.AppDataUpdate_Complete != null) { this.AppDataUpdate_Complete(e); } }
-        private void AppDataSearchReady(ItemCompletedEventArgs<List<AppData>> e)
-        { if (this.AppDataSearch_Complete != null) { this.AppDataSearch_Complete(e); } }
-
-        private void CustomDataAddReady(ItemCompletedEventArgs<string> e)
-        {
-            if (this.CustomDataAdd_Complete != null)
-            {
-                this.CustomDataAdd_Complete(e);
-            }
-        }
-        private void CustomDataUpdateReady(ItemCompletedEventArgs<string> e)
-        {
-            if (this.CustomDataUpdate_Complete != null)
-            {
-                this.CustomDataUpdate_Complete(e);
-            }
-        }
-        private void CustomDataDeleteReady(ItemCompletedEventArgs<string> e)
-        {
-            if (this.CustomDataDelete_Complete != null)
-            {
-                this.CustomDataDelete_Complete(e);
-            }
-        }
-        //private void CustomDataSearchReady(ItemCompletedEventArgs<object> e)
-        //{
-        //    if (this.CustomDataSearch_Complete != null)
-        //    {
-        //        this.CustomDataSearch_Complete(e);
-        //    }
-        //}
-        //private void CustomDataGetReady(ItemCompletedEventArgs<object> e)
-        //{
-        //    //if (this.CustomDataGet_Complete != null)
-        //    //{
-        //    //    this.CustomDataGet_Complete(e);
-        //    //}
-        //}
-
-        private void EventAddReady(ItemCompletedEventArgs<string> e)
-        { if (this.EventAdd_Complete != null) { this.EventAdd_Complete(e); } }
-        private void EventGetReady(ItemCompletedEventArgs<Event> e)
-        { if (this.EventGet_Complete != null) { this.EventGet_Complete(e); } }
-        private void EventUpdateReady(ItemCompletedEventArgs<string> e)
-        { if (this.EventUpdate_Complete != null) { this.EventUpdate_Complete(e); } }
-        private void EventsSearchByDistanceReady(ItemCompletedEventArgs<List<Event>> e)
-        { if (this.EventsSearchByDistance_Complete != null) { this.EventsSearchByDistance_Complete(e); } }
-        private void EventsSearchByPersonIDReady(ItemCompletedEventArgs<List<Event>> e)
-        { if (this.EventsSearchByPersonID_Complete != null) { this.EventsSearchByPersonID_Complete(e); } }
-
-        private void EventCommentAddReady(ItemCompletedEventArgs<string> e)
-        { if (this.EventCommentAdd_Complete != null) { this.EventCommentAdd_Complete(e); } }
-        private void EventCommentDeleteReady(ItemCompletedEventArgs<string> e)
-        { if (this.EventCommentDelete_Complete != null) { this.EventCommentDelete_Complete(e); } }
-        private void EventCommentsGetReady(ItemCompletedEventArgs<List<EventComment>> e)
-        {
-            if (this.EventCommentsGet_Complete != null)
-            {
-                this.EventCommentsGet_Complete(e);
-            }
-        }
-        private void EventCommentUpdateReady(ItemCompletedEventArgs<string> e)
-        { if (this.EventCommentUpdate_Complete != null) { this.EventCommentUpdate_Complete(e); } }
-
-        private void EventParticipantsGetReady(ItemCompletedEventArgs<List<EventParticipant>> e)
-        { if (this.EventParticipantsGet_Complete != null) { this.EventParticipantsGet_Complete(e); } }
-        private void EventParticipantInviteReady(ItemCompletedEventArgs<string> e)
-        { if (this.EventParticipantInvite_Complete != null) { this.EventParticipantInvite_Complete(e); } }
-        private void EventParticipantsInviteReady(ItemCompletedEventArgs<string> e)
-        { if (this.EventParticipantsInvite_Complete != null) { this.EventParticipantsInvite_Complete(e); } }
-        private void EventParticipantDeleteReady(ItemCompletedEventArgs<string> e)
-        { if (this.EventParticipantsDelete_Complete != null) { this.EventParticipantsDelete_Complete(e); } }
-        private void EventRequestInvitationReady(ItemCompletedEventArgs<string> e)
-        { if (this.EventRequestInvitation_Complete != null) { this.EventRequestInvitation_Complete(e); } }
-        private void EventRSVPReady(ItemCompletedEventArgs<string> e)
-        { if (this.EventRSVP_Complete != null) { this.EventRSVP_Complete(e); } }
-
-        private void EventAppDataAddReady(ItemCompletedEventArgs<string> e)
-        {
-            if (this.EventAppDataAdd_Complete != null)
-            {
-                this.EventAppDataAdd_Complete(e);
-            }
-        }
-        private void EventAppDataDeleteReady(ItemCompletedEventArgs<string> e)
-        { if (this.EventAppDataDelete_Complete != null) { this.EventAppDataDelete_Complete(e); } }
-        private void EventAppDataGetReady(ItemCompletedEventArgs<AppData> e)
-        {
-            if (this.EventAppDataGet_Complete != null)
-            {
-                this.EventAppDataGet_Complete(e);
-            }
-        }
-        private void EventAppDataGetAllReady(ItemCompletedEventArgs<List<AppData>> e)
-        { if (this.EventAppDataGetAll_Complete != null) { this.EventAppDataGetAll_Complete(e); } }
-        private void EventAppDataUpdateReady(ItemCompletedEventArgs<string> e)
-        { if (this.EventAppDataUpdate_Complete != null) { this.EventAppDataUpdate_Complete(e); } }
-
-        private void FriendsGetReady(ItemCompletedEventArgs<List<Friend>> e)
-        { if (this.FriendsGet_Complete != null) { this.FriendsGet_Complete(e); } }
-        private void FriendInviteReady(ItemCompletedEventArgs<string> e)
-        { if (this.FriendInvite_Complete != null) { this.FriendInvite_Complete(e); } }
-        private void FriendBySocialNetworkInviteReady(ItemCompletedEventArgs<string> e)
-        { if (this.FriendBySocialNetworkInvite_Complete != null) { this.FriendBySocialNetworkInvite_Complete(e); } }
-        private void FriendRespondReady(ItemCompletedEventArgs<string> e)
-        { if (this.FriendRespond_Complete != null) { this.FriendRespond_Complete(e); } }
-        private void FriendsSocialNetworkGetReady(ItemCompletedEventArgs<List<SocialNetworkFriend>> e)
-        { if (this.FriendsSocialNetworkGet_Complete != null) { this.FriendsSocialNetworkGet_Complete(e); } }
-        private void FriendsSocialNetworkAppGetReady(ItemCompletedEventArgs<List<SocialNetworkPFriend>> e)
-        { if (this.FriendsSocialNetworkAppGet_Complete != null) { this.FriendsSocialNetworkAppGet_Complete(e); } }
-
-        private void GeoCodebyAddressReady(ItemCompletedEventArgs<GeoCode> e)
-        { if (this.GeoCodebyAddress_Complete != null) { this.GeoCodebyAddress_Complete(e); } }
-        private void ReverseGeoCodeReady(ItemCompletedEventArgs<Location> e)
-        { if (this.ReverseGeoCode_Complete != null) { this.ReverseGeoCode_Complete(e); } }
-        private void GeoCodeByIPAddressReady(ItemCompletedEventArgs<GeoIP> e)
-        { if (this.GeoCodeByIPAddress_Complete != null) { this.GeoCodeByIPAddress_Complete(e); } }
-
-        private void LocationAddReady(ItemCompletedEventArgs<string> e)
-        { if (this.LocationAdd_Complete != null) { this.LocationAdd_Complete(e); } }
-        private void LocationDeleteReady(ItemCompletedEventArgs<string> e)
-        { if (this.LocationDelete_Complete != null) { this.LocationDelete_Complete(e); } }
-        private void LocationGetReady(ItemCompletedEventArgs<Location> e)
-        { if (this.LocationGet_Complete != null) { this.LocationGet_Complete(e); } }
-        private void LocationUpdateReady(ItemCompletedEventArgs<string> e)
-        { if (this.LocationUpdate_Complete != null) { this.LocationUpdate_Complete(e); } }
-        private void LocationCategoriesGetReady(ItemCompletedEventArgs<List<Category>> e)
-        { if (this.LocationCategoriesGet_Complete != null) { this.LocationCategoriesGet_Complete(e); } }
-        private void LocationsSearchByAddressReady(ItemCompletedEventArgs<List<Location>> e)
-        { if (this.LocationsSearchByAddress_Complete != null) { this.LocationsSearchByAddress_Complete(e); } }
-        private void LocationsSearchByGPSReady(ItemCompletedEventArgs<List<Location>> e)
-        { if (this.LocationsSearchByGPS_Complete != null) { this.LocationsSearchByGPS_Complete(e); } }
-        private void LocationsSearchByIPAddressReady(ItemCompletedEventArgs<List<Location>> e)
-        { if (this.LocationsSearchByIPAddress_Complete != null) { this.LocationsSearchByIPAddress_Complete(e); } }
-
-        private void LocationAppDataAddReady(ItemCompletedEventArgs<string> e)
-        {
-            if (this.LocationAppDataAdd_Complete != null)
-            {
-                this.LocationAppDataAdd_Complete(e);
-            }
-        }
-        private void LocationAppDataDeleteReady(ItemCompletedEventArgs<string> e)
-        { if (this.LocationAppDataDelete_Complete != null) { this.LocationAppDataDelete_Complete(e); } }
-        private void LocationAppDataGetReady(ItemCompletedEventArgs<AppData> e)
-        {
-            if (this.LocationAppDataGet_Complete != null)
-            {
-                this.LocationAppDataGet_Complete(e);
-            }
-        }
-        private void LocationAppDataGetAllReady(ItemCompletedEventArgs<List<AppData>> e)
-        { if (this.LocationAppDataGetAll_Complete != null) { this.LocationAppDataGetAll_Complete(e); } }
-        private void LocationAppDataUpdateReady(ItemCompletedEventArgs<string> e)
-        { if (this.LocationAppDataUpdate_Complete != null) { this.LocationAppDataUpdate_Complete(e); } }
-
-        private void NotificationSendReady(ItemCompletedEventArgs<string> e)
-        { if (this.NotificationSend_Complete != null) { this.NotificationSend_Complete(e); } }
-
-        private void PersonGetReady(ItemCompletedEventArgs<Person> e)
-        { if (this.PersonGet_Complete != null) { this.PersonGet_Complete(e); } }
-        private void PersonUpdateReady(ItemCompletedEventArgs<string> e)
-        { if (this.PersonUpdate_Complete != null) { this.PersonUpdate_Complete(e); } }
-        private void PersonAppDataAddReady(ItemCompletedEventArgs<string> e)
-        { if (this.PersonAppDataAdd_Complete != null) { this.PersonAppDataAdd_Complete(e); } }
-        private void PersonAppDataDeleteReady(ItemCompletedEventArgs<string> e)
-        { if (this.PersonAppDataDelete_Complete != null) { this.PersonAppDataDelete_Complete(e); } }
-        private void PersonAppDataGetReady(ItemCompletedEventArgs<AppData> e)
-        { if (this.PersonAppDataGet_Complete != null) { this.PersonAppDataGet_Complete(e); } }
-        private void PersonAppDataGetAllReady(ItemCompletedEventArgs<List<AppData>> e)
-        { if (this.PersonAppDataGetAll_Complete != null) { this.PersonAppDataGetAll_Complete(e); } }
-        private void PersonAppDataUpdateReady(ItemCompletedEventArgs<string> e)
-        { if (this.PersonAppDataUpdate_Complete != null) { this.PersonAppDataUpdate_Complete(e); } }
-        private void PersonLocationsGetReady(ItemCompletedEventArgs<List<Location>> e)
-        { if (this.PersonLocationsGet_Complete != null) { this.PersonLocationsGet_Complete(e); } }
-        private void PersonSocialNetworkInfoGetReady(ItemCompletedEventArgs<List<SocialNetworkInfo>> e)
-        { if (this.PersonSocialNetworkInfoGet_Complete != null) { this.PersonSocialNetworkInfoGet_Complete(e); } }
-
-        #endregion
 
         #region Proxomo Methods
         #region AppData Methods
@@ -712,7 +410,7 @@ namespace Proxomo //ProxomoWP7SDK
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "POST", contentType, Converter.Convert(comment, Format, false), EventCommentAddReady);
+                p.GetDataItem(url, "POST", contentType, Converter.Convert(comment, Format, false), userCallback);
             }
         }
         public void EventCommentsGet(string eventID, ProxomoUserCallbackDelegate<List<EventComment>> userCallback)
@@ -721,7 +419,7 @@ namespace Proxomo //ProxomoWP7SDK
 
             using (ProxomoWebRequest<List<EventComment>> p = new ProxomoWebRequest<List<EventComment>>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, "", EventCommentsGetReady);
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
             }
         }
         public void EventCommentUpdate(string eventID, EventComment comment, ProxomoUserCallbackDelegate<string> userCallback)
@@ -730,7 +428,7 @@ namespace Proxomo //ProxomoWP7SDK
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "PUT", contentType, Converter.Convert(comment, Format, false), EventUpdateReady);
+                p.GetDataItem(url, "PUT", contentType, Converter.Convert(comment, Format, false), userCallback);
             }
         }
         public void EventCommentDelete(string eventID, string commentID, ProxomoUserCallbackDelegate<string> userCallback)
@@ -739,7 +437,7 @@ namespace Proxomo //ProxomoWP7SDK
 
             using (ProxomoWebRequest<string> p = new ProxomoWebRequest<string>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "DELETE", contentType, "", EventCommentDeleteReady);
+                p.GetDataItem(url, "DELETE", contentType, "", userCallback);
             }
         }
 
@@ -929,7 +627,7 @@ namespace Proxomo //ProxomoWP7SDK
 
             using (ProxomoWebRequest<GeoCode> p = new ProxomoWebRequest<GeoCode>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, "", GeoCodebyAddressReady);
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
             }
 
         }
@@ -939,7 +637,7 @@ namespace Proxomo //ProxomoWP7SDK
 
             using (ProxomoWebRequest<Location> p = new ProxomoWebRequest<Location>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, "", ReverseGeoCodeReady);
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
             }
 
         }
@@ -949,7 +647,7 @@ namespace Proxomo //ProxomoWP7SDK
 
             using (ProxomoWebRequest<GeoIP> p = new ProxomoWebRequest<GeoIP>(AuthToken.AccessToken, ValidateSSLCert, Format))
             {
-                p.GetDataItem(url, "GET", contentType, "", GeoCodeByIPAddressReady);
+                p.GetDataItem(url, "GET", contentType, "", userCallback);
             }
 
         }

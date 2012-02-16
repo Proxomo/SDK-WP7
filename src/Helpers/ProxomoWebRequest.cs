@@ -51,36 +51,6 @@ namespace Proxomo
             this.Format = format;
         }
 
-        //internal void GetDataItem(string url, string method, string contentType, ProxomoCallbackItem callBack)
-        //{
-        //    GetDataItem(url, method, contentType, string.Empty, callBack);
-        //}
-
-        internal void GetDataItemOLD(string url, string method, string contentType, string content, ProxomoCallbackItem callBack, int x)
-        {
-            RequestStateItem<t> state = new RequestStateItem<t>();
-
-            ContinuationTokens cTokens = new ContinuationTokens("", "");
-
-            state.CallBack = callBack;
-            state.Url = url;
-            state.Method = method;
-            state.ContentType = contentType;
-            state.Request = GetRequest(url, method, ref cTokens);
-
-            if (content.Length > 0)
-            {
-                state.Content = content;
-                state.Request.ContentType = contentType;
-                state.Request.BeginGetRequestStream(GetResponseStreamItem_Callback, state);
-            }
-            else
-            {
-                state.Request.BeginGetResponse(GetResponseItem_Callback, state);
-            }
-        }
-
-
         internal void GetDataItem(string url, string method, string contentType, string content, ProxomoUserCallbackDelegate<t> userCallback)
         {
             ContinuationTokens cTokens = new ContinuationTokens("", "");
@@ -88,8 +58,6 @@ namespace Proxomo
             GetDataItem(url, method, contentType, content, userCallback, ref cTokens);
 
         }
-
-
 
         internal void GetDataItem(string url, string method, string contentType, string content, ProxomoUserCallbackDelegate<t> userCallback, ref ContinuationTokens cTokens)
         {
@@ -253,11 +221,6 @@ namespace Proxomo
                 return result;
             }
         }
-
-        //private bool returnTrue(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors policyErrors)
-        //{
-        //    return true;
-        //}
 
         private bool disposedValue;
 
