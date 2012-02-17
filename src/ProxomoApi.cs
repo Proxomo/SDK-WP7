@@ -101,22 +101,22 @@ namespace Proxomo
 
         #region SDK Constructors and AuthToken management
 
-        public ProxomoApi(string applicationID, string proxomoAPIKey,CommunicationType format = CommunicationType.JSON, bool validatessl = true, string url = "")
+        public ProxomoApi(string applicationID, string proxomoAPIKey,CommunicationType format = CommunicationType.JSON, bool validatessl = true, string url = "", Token token = null)
         {
             // We will pass into Init a delegate callback to call when the Init operation is complete.
             // The reason is that we need to set the private fields we use to store both the Auth Token value as well as its expiration date before returning back to user
             ProxomoUserCallbackDelegate<Token> InitComplete_Callback = new ProxomoUserCallbackDelegate<Token>(InitializationReady);
-            Init(applicationID, proxomoAPIKey, "v09", format, validatessl, url, InitComplete_Callback);
+            Init(applicationID, proxomoAPIKey, "v09", format, validatessl, url, token, InitComplete_Callback);
         }
-        public ProxomoApi(string applicationID, string proxomoAPIKey, string version, CommunicationType format = CommunicationType.JSON, bool validatessl = true, string url = "")
+        public ProxomoApi(string applicationID, string proxomoAPIKey, string version, CommunicationType format = CommunicationType.JSON, bool validatessl = true, string url = "", Token token = null)
         {
             // We will pass into Init a delegate callback to call when the Init operation is complete.
             // The reason is that we need to set the private fields we use to store both the Auth Token value as well as its expiration date before returning back to user
             ProxomoUserCallbackDelegate<Token> InitComplete_Callback = new ProxomoUserCallbackDelegate<Token>(InitializationReady);
-            Init(applicationID, proxomoAPIKey, version, format, validatessl, url, InitComplete_Callback);
+            Init(applicationID, proxomoAPIKey, version, format, validatessl, url, token, InitComplete_Callback);
         }
 
-        private void Init(string applicationID, string proxomoAPIKey, string version, CommunicationType format, bool validatessl, string url, ProxomoUserCallbackDelegate<Token> initCompleteCallback)
+        private void Init(string applicationID, string proxomoAPIKey, string version, CommunicationType format, bool validatessl, string url, Token token, ProxomoUserCallbackDelegate<Token> initCompleteCallback)
         {
             APIVersion = version;
             _applicationID = applicationID;
@@ -152,7 +152,21 @@ namespace Proxomo
                 }
             }
 
-            GetAuthToken(initCompleteCallback);
+            if (token != null)
+            {
+                if (token.ExpiresDate <= DateTime.Now)
+                {
+                    GetAuthToken(initCompleteCallback);
+                }
+                else
+                {
+                    AuthToken = token;
+                }
+            }
+            else
+            {
+                GetAuthToken(initCompleteCallback);
+            }
         }
 
         private void GetAuthToken(ProxomoUserCallbackDelegate<Token> initCompleteCallback)
