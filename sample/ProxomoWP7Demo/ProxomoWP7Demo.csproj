@@ -53,10 +53,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Microsoft.Phone" />
-    <Reference Include="Microsoft.Phone.Controls.Toolkit, Version=1.0.0.0, Culture=neutral, PublicKeyToken=b772ad94eb9ca604, processorArchitecture=MSIL" />
     <Reference Include="Microsoft.Phone.Interop" />
     <Reference Include="ProxomoWP7SDK">
-      <HintPath>..\..\..\WP7\src\Bin\Debug\ProxomoWP7SDK.dll</HintPath>
+      <HintPath>..\..\src\Bin\Debug\ProxomoWP7SDK.dll</HintPath>
     </Reference>
     <Reference Include="System.Windows" />
     <Reference Include="system" />

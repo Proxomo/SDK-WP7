@@ -32,15 +32,20 @@ namespace ProxomoWP7Demo.Views
             InitializeComponent();
             try
             {
-                ProxomoLoginBrowser.appID = "nngAqYvGWMM9EwyO";//this.NavigationContext.QueryString["applicationID"];  //"nngAqYvGWMM9EwyO";
-                ProxomoLoginBrowser.authtoken = "nlbUw97E7xb%2b6Z5XU6fJPdyUwUzPRVlEVOpn198EMeM%3d";//"6OMcNtYu2GoJsRZtu9sxnRMkkg263QHwPK/dCzbcej4=";//this.NavigationContext.QueryString["authtoken"];  //"nlbUw97E7xb%2b6Z5XU6fJPdyUwUzPRVlEVOpn198EMeM%3d";
-                ProxomoLoginBrowser.Login_Complete += new Proxomo.ProxomoLoginControl.LoginOutcomeEventHandler(NewProxomoLogin_Complete);
+                
             }
             catch (Exception ex)
             {
             }
 
 
+        }
+
+        protected override void OnNavigatedTo(System.Windows.Navigation.NavigationEventArgs e)
+        {
+            ProxomoLoginBrowser.appID = this.NavigationContext.QueryString["applicationID"];
+            ProxomoLoginBrowser.authtoken = this.NavigationContext.QueryString["authtoken"];
+            ProxomoLoginBrowser.Login_Complete += new Proxomo.ProxomoLoginControl.LoginOutcomeEventHandler(NewProxomoLogin_Complete);
         }
     }
 }

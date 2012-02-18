@@ -817,8 +817,8 @@ namespace ProxomoWP7Demo
 
         #endregion
 
-        string applicationID = "nngAqYvGWMM9EwyO";
-        string ProxomoAPIkey = "NnunozvrF6hg4Zfu77uqf8ssKwt1ueV+eZlCWk2k++I=";
+        string applicationID = "<YOUR APP ID HERE>";
+        string ProxomoAPIkey = "<YOUR PROXOMO API KEY HERE>";
         public Proxomo.ProxomoApi WP7SDKInstance;
 
         public void checkSDKInitialized()
