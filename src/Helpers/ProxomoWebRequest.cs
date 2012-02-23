@@ -51,19 +51,35 @@ namespace Proxomo
             this.Format = format;
         }
 
-        internal void GetDataItem(string url, string method, string contentType, string content, ProxomoUserCallbackDelegate<t> userCallback)
+        //internal void GetDataItem(string url, string method, string contentType, string content, ProxomoUserCallbackDelegate<t> userCallback)
+        //{
+        //    object userData = null;
+
+        //    ContinuationTokens cTokens = new ContinuationTokens("", "");
+
+        //    GetDataItem(url, method, contentType, content, userCallback, userData, ref cTokens);
+        //}
+
+        //internal void GetDataItem(string url, string method, string contentType, string content, ProxomoUserCallbackDelegate<t> userCallback, ref ContinuationTokens cTokens)
+        //{         
+        //    object userData = null;
+
+        //    GetDataItem(url, method, contentType, content, userCallback, userData, ref cTokens);
+        //}
+
+        internal void GetDataItem(string url, string method, string contentType, string content, ProxomoUserCallbackDelegate<t> userCallback, object userData)
         {
             ContinuationTokens cTokens = new ContinuationTokens("", "");
 
-            GetDataItem(url, method, contentType, content, userCallback, ref cTokens);
-
+            GetDataItem(url, method, contentType, content, userCallback, userData, ref cTokens);
         }
 
-        internal void GetDataItem(string url, string method, string contentType, string content, ProxomoUserCallbackDelegate<t> userCallback, ref ContinuationTokens cTokens)
+        internal void GetDataItem(string url, string method, string contentType, string content, ProxomoUserCallbackDelegate<t> userCallback, object userData, ref ContinuationTokens cTokens)
         {
             RequestStateItem<t> state = new RequestStateItem<t>();
 
             state.UserCallback = userCallback;
+            state.UserData = userData;
             state.Url = url;
             state.Method = method;
             state.ContentType = contentType;
@@ -142,7 +158,7 @@ namespace Proxomo
 
             try
             {
-
+                // See note in the WebException catch below regarding exceptions that could be thrown when doing the EndGetResponse next... 
                 state.Response = (HttpWebResponse)state.Request.EndGetResponse(asyncResult);
 
                 // Return back to caller the continuation tokens returned by the service response (if any) ... 
@@ -154,54 +170,32 @@ namespace Proxomo
                 cTokensIfAny.NextPartitionKey = state.Response.Headers[NextPartitionKeyDescriptor];
                 cTokensIfAny.NextRowKey = state.Response.Headers[NextRowKeyDescriptor];
 
-                using (Stream resultStream = state.Response.GetResponseStream()) // See note in the WebException catch below regarding exceptions that could be thrown by this line...                
+                using (Stream resultStream = state.Response.GetResponseStream())               
                 {
                     using (StreamReader sreader = new StreamReader(resultStream))
                     {
                         state.Request = null;
 
-                        args.Error = null;
                         args.cTokens = cTokensIfAny;
+                        args.UserData = state.UserData;
 
                         if (this.Format == CommunicationType.XML)
                         {
-                            args.Result = ReturnXML(sreader);
-
-                            if (!(state.CallBack == null))
-                            {
-                                // The only case were we set this Callback instead of the UserCallback is during the Init of the SDK...
-                                // The reason is that for now since we do not want the Init call to call back into a delegate in the user side, we are just calling back
-                                // into an 'internal' delegate were we can update the AuthToken info before returning to user in a "synchronous" fashion
-                                state.CallBack(args);
-                            }
-                            else
-                            {
-                                // All other entry points call back into a delegate sent in by the user.  Thus they bahave asynchronously.
-                                state.UserCallback(args);
-                            }
-  
+                            args.Result = ReturnXML(sreader);  
                         }
                         else if (this.Format == CommunicationType.JSON)
                         {
-                            args.Result = ReturnJSON(sreader);
-
-                            if (!(state.CallBack == null))
-                            {
-                                // The only case were we set this Callback instead of the UserCallback is during the Init of the SDK...
-                                // The reason is that for now since we do not want the Init call to call back into a delegate in the user side, we are just calling back
-                                // into an 'internal' delegate were we can update the AuthToken info before returning to user in a "synchronous" fashion
-                                state.CallBack(args);
-                            }
-                            else
-                            {
-                                // All other entry points call back into a delegate sent in by the user.  Thus they bahave asynchronously.
-                                state.UserCallback(args);
-                            }
+                            args.Result = ReturnJSON(sreader);  
                         }
                         else
                         {
-                            state.CallBack(new ItemCompletedEventArgs<t> { IsError = true, Error = null, Result = default(t) });
+                            // unknown format, cannot process result
+                            args.IsError = true;
+                            args.Error= new Exception("Communication Type format not supported.");
                         }
+                        
+                        state.UserCallback(args);
+
                         sreader.Close();  //Fix for Windows Phone network bug
                     }
                     resultStream.Close();  //Fix for Windows Phone network bug
@@ -210,34 +204,34 @@ namespace Proxomo
                 state.Response = null;
                 state = null;
             }
-            //catch (NullReferenceException nullex)
-            //{
-            //    state.CallBack(new ItemCompletedEventArgs<t> { Error = nullex, Result = default(t) });
-            //}
+
 
             #region catch WebException
-            // The Proxomo Web Service throws exceptions of type WebException that gives the caller (such as this SDK) detailed information when the service was 
-            // not able to process a particular request. However, the current behavior of the GetResponseStream earlier in this function is to itself throw a more 
-            // general exception ("The remote server returned an error: NotFound.") when it sees that the server (in this case, our Proxomo service) returns 
+            // The Proxomo Web Service throws exceptions of type WebException that provide this SDK with detailed information when the service was 
+            // not able to process a particular request. However, the current behavior of the Request.EndGetResponse earlier in this function is to itself throw a more 
+            // general exception ("The remote server returned an error: NotFound.") when it sees that the Proxomo service returns 
             // its detailed WebException. However, the actual detailed WebExpection from the Proxomo service is not lost: it can be found buried inside 
             // the more general exception (namely, inside its 'response' property). Therefore, here we catch any such general WebExceptions and extract 
-            // the more specific WebException returned by the Proxomo service and make it easy to see in the arguments that are returned to the caller's delegate.
+            // the more specific WebException returned by the Proxomo service. We then are able to return this detailed information back to the caller's delegate.
             catch (WebException webex)
             {
                 args.IsError = true;
                 args.Error = webex;
+                args.UserData = state.UserData;
+
 
                 WebResponse errResp = ((WebException)webex).Response;
 
                 using (Stream respStream = errResp.GetResponseStream())
                 {
-                    // read the error response
+                    // read the error response where we will find the Proxomo service exception information (if Proxomo service threw the ex)
 
                     using (StreamReader sreader = new StreamReader(respStream))
                     {
                         if (this.Format == CommunicationType.XML)
                         {
-                           //args.HttpRespMessage = sreader.ReadToEnd().Replace("<string>", "").Replace("</string>", "");
+                           // For debugging: 
+                           //string tempString = sreader.ReadToEnd().Replace("<string>", "").Replace("</string>", "");
 
                             DataContractSerializer ds = new DataContractSerializer(typeof(Error));
                             Error result = (Error)(ds.ReadObject(sreader.BaseStream));
@@ -248,8 +242,8 @@ namespace Proxomo
                         }
                         else if (this.Format == CommunicationType.JSON)
                         {
-                            //string temp = sreader.ReadToEnd();
-                            //temp =  temp.Replace("\"", "");
+                            // For debugging: 
+                            //string temp = sreader.ReadToEnd().Replace("\"", "");
 
                             DataContractJsonSerializer ds = new DataContractJsonSerializer(typeof(Error));
                             Error result = (Error)(ds.ReadObject(sreader.BaseStream));  
@@ -268,14 +262,7 @@ namespace Proxomo
                     }
                 }
 
-                if (!(state.CallBack == null))
-                {
-                    state.CallBack(args);
-                }
-                else
-                {
                     state.UserCallback(args);
-                }
             }
             #endregion
 
@@ -285,15 +272,8 @@ namespace Proxomo
             {
                 args.IsError = true;
                 args.Error = ex;
-
-                if (!(state.CallBack == null))
-                {
-                    state.CallBack(args);
-                }
-                else
-                {
-                    state.UserCallback(args);
-                }
+  
+                state.UserCallback(args);
             }
             #endregion
 

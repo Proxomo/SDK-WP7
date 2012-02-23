@@ -14,8 +14,9 @@ namespace Proxomo
 {
     internal class RequestStateItem<t>
     {
-        internal ProxomoWebRequest<t>.ProxomoCallbackItem CallBack { get; set; }
-        internal ProxomoUserCallbackDelegate<t> UserCallback { get; set; } //
+        internal ProxomoUserCallbackDelegate<t> UserCallback { get; set; }
+        internal object UserData { get; set; } 
+
         internal ItemCompletedEventArgs<t> Result { get; set; }
         internal string Url { get; set; }
         internal string Method { get; set; }
