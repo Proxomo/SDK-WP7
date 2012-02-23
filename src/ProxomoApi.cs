@@ -14,18 +14,6 @@ using System.Collections.Generic;
 
 namespace Proxomo
 {
-
-
-    // DELETE.... This delegate is used to receive the actual event handler (callback) that the Top App wants to call
-    // when initialization is complete. This is necessary since the user cannot register to listen until AFTER the 
-    // SDK instance is created (constructor). Therefore, we need to register it for him within the constructor -- AFTER the 
-    // SDK instance is created and BEFORE we make the call to init (to get the token).
-    //public delegate void UserInitCompleteHandler(object value);
-
-    // DELETE... This delegate is used INTERNALLY within this SDK to implement callbacks to raise appropriate events
-    // that the use can register to listen to for each Proxomo method
-    //public delegate void ProxomoCallback(object value);
-
     public delegate void ProxomoUserCallbackDelegate<T>(ItemCompletedEventArgs<T> results);     
      
     public partial class ProxomoApi
@@ -110,9 +98,13 @@ namespace Proxomo
         }
         public ProxomoApi(string applicationID, string proxomoAPIKey, string version, CommunicationType format = CommunicationType.JSON, bool validatessl = true, string url = "", Token token = null)
         {
-            // We will pass into Init a delegate callback to call when the Init operation is complete.
-            // The reason is that we need to set the private fields we use to store both the Auth Token value as well as its expiration date before returning back to user
+            // Instead of using the same async mechanism that we provide for all other methods in this SDK (where caller sends in a delegate that we call when the given method completes),
+            // we designed the initialization to behave differently. Namely, it will not ask the caller to send in a delegate to notify them when the init has completed. Instead, they will have a method
+            // to poll and confirm that the init is complete. Therefore:
+            // We will pass into Init a delegate callback that is internal to our SDK. This delegate will be called when the Init operation is complete so we can internally 
+            // set the private fields we use to store the Auth Token value and its expiration date before returning back to user.
             ProxomoUserCallbackDelegate<Token> InitComplete_Callback = new ProxomoUserCallbackDelegate<Token>(InitializationReady);
+
             Init(applicationID, proxomoAPIKey, version, format, validatessl, url, token, InitComplete_Callback);
         }
 
@@ -175,16 +167,12 @@ namespace Proxomo
 
             using (ProxomoWebRequest<Token> p = new ProxomoWebRequest<Token>(ValidateSSLCert, Format))
             {
-                // We will pass into Init a delegate callback to call when the Init operation is complete.
-                // The reason is that we need to set the private fields we use to store both the Auth Token value as well as its expiration date before returning back to user
-                p.GetDataItem(url, "GET", contentType, "", initCompleteCallback);
+                 p.GetDataItem(url, "GET", contentType, "", initCompleteCallback);
                 // add timeout handling... 
             }
         }
         public void RefreshAuthToken()
         {
-            // We will pass into Init a delegate callback to call when the Init operation is complete.
-            // The reason is that we need to set the private fields we use to store both the Auth Token value as well as its expiration date before returning back to user
             ProxomoUserCallbackDelegate<Token> InitComplete_Callback = new ProxomoUserCallbackDelegate<Token>(InitializationReady);
             GetAuthToken(InitComplete_Callback);
         }

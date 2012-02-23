@@ -129,16 +129,20 @@ namespace Proxomo
             }
             catch (Exception ex)
             {
-                state.CallBack(new ItemCompletedEventArgs<t> { Error = ex, Result = default(t) });
+                state.UserCallback(new ItemCompletedEventArgs<t> { IsError = true, Error = ex, Result = default(t) });
             }
         }
 
         private void GetResponseItem_Callback(IAsyncResult asyncResult)
         {
+            // Note: we need to instantiate these two objects outside the try statement so that they are available to the catch statements
+            // to return useful error information to the caller when an exception is thrown.
             RequestStateItem<t> state = (RequestStateItem<t>)asyncResult.AsyncState;
+            ItemCompletedEventArgs<t> args = new ItemCompletedEventArgs<t> { IsError = false, HttpRespCode = 0, HttpRespMessage = "", Error = null, UserData = null, Result = default(t) };
 
             try
             {
+
                 state.Response = (HttpWebResponse)state.Request.EndGetResponse(asyncResult);
 
                 // Return back to caller the continuation tokens returned by the service response (if any) ... 
@@ -150,29 +154,53 @@ namespace Proxomo
                 cTokensIfAny.NextPartitionKey = state.Response.Headers[NextPartitionKeyDescriptor];
                 cTokensIfAny.NextRowKey = state.Response.Headers[NextRowKeyDescriptor];
 
-                using (Stream resultStream = state.Response.GetResponseStream())
+                using (Stream resultStream = state.Response.GetResponseStream()) // See note in the WebException catch below regarding exceptions that could be thrown by this line...                
                 {
                     using (StreamReader sreader = new StreamReader(resultStream))
                     {
                         state.Request = null;
+
+                        args.Error = null;
+                        args.cTokens = cTokensIfAny;
+
                         if (this.Format == CommunicationType.XML)
                         {
-                            state.CallBack(new ItemCompletedEventArgs<t> { Error = null, Result = ReturnXML(sreader) });
-                        }
-                        else if (this.Format == CommunicationType.JSON)
-                        {
+                            args.Result = ReturnXML(sreader);
+
                             if (!(state.CallBack == null))
                             {
-                                state.CallBack(new ItemCompletedEventArgs<t> { Error = null, Result = ReturnJSON(sreader), cTokens = cTokensIfAny });
+                                // The only case were we set this Callback instead of the UserCallback is during the Init of the SDK...
+                                // The reason is that for now since we do not want the Init call to call back into a delegate in the user side, we are just calling back
+                                // into an 'internal' delegate were we can update the AuthToken info before returning to user in a "synchronous" fashion
+                                state.CallBack(args);
                             }
                             else
                             {
-                                state.UserCallback(new ItemCompletedEventArgs<t> { Error = null, Result = ReturnJSON(sreader), cTokens = cTokensIfAny });
+                                // All other entry points call back into a delegate sent in by the user.  Thus they bahave asynchronously.
+                                state.UserCallback(args);
+                            }
+  
+                        }
+                        else if (this.Format == CommunicationType.JSON)
+                        {
+                            args.Result = ReturnJSON(sreader);
+
+                            if (!(state.CallBack == null))
+                            {
+                                // The only case were we set this Callback instead of the UserCallback is during the Init of the SDK...
+                                // The reason is that for now since we do not want the Init call to call back into a delegate in the user side, we are just calling back
+                                // into an 'internal' delegate were we can update the AuthToken info before returning to user in a "synchronous" fashion
+                                state.CallBack(args);
+                            }
+                            else
+                            {
+                                // All other entry points call back into a delegate sent in by the user.  Thus they bahave asynchronously.
+                                state.UserCallback(args);
                             }
                         }
                         else
                         {
-                            state.CallBack(new ItemCompletedEventArgs<t> { Error = null, Result = default(t) });
+                            state.CallBack(new ItemCompletedEventArgs<t> { IsError = true, Error = null, Result = default(t) });
                         }
                         sreader.Close();  //Fix for Windows Phone network bug
                     }
@@ -182,18 +210,93 @@ namespace Proxomo
                 state.Response = null;
                 state = null;
             }
-            catch (NullReferenceException nullex)
-            {
-                state.CallBack(new ItemCompletedEventArgs<t> { Error = nullex, Result = default(t) });
-            }
+            //catch (NullReferenceException nullex)
+            //{
+            //    state.CallBack(new ItemCompletedEventArgs<t> { Error = nullex, Result = default(t) });
+            //}
+
+            #region catch WebException
+            // The Proxomo Web Service throws exceptions of type WebException that gives the caller (such as this SDK) detailed information when the service was 
+            // not able to process a particular request. However, the current behavior of the GetResponseStream earlier in this function is to itself throw a more 
+            // general exception ("The remote server returned an error: NotFound.") when it sees that the server (in this case, our Proxomo service) returns 
+            // its detailed WebException. However, the actual detailed WebExpection from the Proxomo service is not lost: it can be found buried inside 
+            // the more general exception (namely, inside its 'response' property). Therefore, here we catch any such general WebExceptions and extract 
+            // the more specific WebException returned by the Proxomo service and make it easy to see in the arguments that are returned to the caller's delegate.
             catch (WebException webex)
             {
-                state.CallBack(new ItemCompletedEventArgs<t> { Error = webex, Result = default(t) });
+                args.IsError = true;
+                args.Error = webex;
+
+                WebResponse errResp = ((WebException)webex).Response;
+
+                using (Stream respStream = errResp.GetResponseStream())
+                {
+                    // read the error response
+
+                    using (StreamReader sreader = new StreamReader(respStream))
+                    {
+                        if (this.Format == CommunicationType.XML)
+                        {
+                           //args.HttpRespMessage = sreader.ReadToEnd().Replace("<string>", "").Replace("</string>", "");
+
+                            DataContractSerializer ds = new DataContractSerializer(typeof(Error));
+                            Error result = (Error)(ds.ReadObject(sreader.BaseStream));
+                            ds = null;
+
+                            args.HttpRespMessage = result.Message;
+                            args.HttpRespCode = result.Status;
+                        }
+                        else if (this.Format == CommunicationType.JSON)
+                        {
+                            //string temp = sreader.ReadToEnd();
+                            //temp =  temp.Replace("\"", "");
+
+                            DataContractJsonSerializer ds = new DataContractJsonSerializer(typeof(Error));
+                            Error result = (Error)(ds.ReadObject(sreader.BaseStream));  
+                            ds = null;
+
+                            args.HttpRespMessage = result.Message;
+                            args.HttpRespCode = result.Status;
+                            args.IsError = true;
+                            args.Error = webex;
+                            args.Result = default(t);
+                        }
+                        else
+                        {
+                            args.HttpRespMessage = sreader.ReadToEnd(); // unknown format. At least return entire response in the message
+                        }
+                    }
+                }
+
+                if (!(state.CallBack == null))
+                {
+                    state.CallBack(args);
+                }
+                else
+                {
+                    state.UserCallback(args);
+                }
             }
+            #endregion
+
+            #region catch Ex
+            // For any other type of exceptions we just indicate there was an error and we return the entire exception object.
             catch (Exception ex)
             {
-                state.CallBack(new ItemCompletedEventArgs<t> { Error = ex, Result = default(t) });
+                args.IsError = true;
+                args.Error = ex;
+
+                if (!(state.CallBack == null))
+                {
+                    state.CallBack(args);
+                }
+                else
+                {
+                    state.UserCallback(args);
+                }
             }
+            #endregion
+
         }
 
         private t ReturnXML(StreamReader sreader)
@@ -207,10 +310,10 @@ namespace Proxomo
             }
             else
             {
-                DataContractSerializer ds = new DataContractSerializer(typeof(t));
-                t result = (t)(ds.ReadObject(sreader.BaseStream));
-                ds = null;
-                return result;
+                    DataContractSerializer ds = new DataContractSerializer(typeof(t));
+                    t result = (t)(ds.ReadObject(sreader.BaseStream));
+                    ds = null;
+                    return result;
             }
         }
 

@@ -14,7 +14,13 @@ namespace Proxomo
 {
     public class ItemCompletedEventArgs<T>
     {
-        public Exception Error { get; set; }
+      
+        public bool IsError { get; set; }  
+        public int HttpRespCode {get; set;}
+        public string HttpRespMessage { get; set;}
+        public Exception Error { get; set;}
+        public object UserData { get; set;} // to allow user to pass any data through to the delegate
+        
         public T Result { get; set; }
         public ContinuationTokens cTokens { get; set; }
     }

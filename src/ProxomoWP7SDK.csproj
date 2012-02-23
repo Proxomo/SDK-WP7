@@ -63,6 +63,7 @@
   <ItemGroup>
     <Compile Include="Definitions\AppData.cs" />
     <Compile Include="Definitions\Category.cs" />
+    <Compile Include="Definitions\EventArgsWebExInfo.cs" />
     <Compile Include="Definitions\ContinuationTokens.cs" />
     <Compile Include="Definitions\Event.cs" />
     <Compile Include="Definitions\EventArgs.cs" />
