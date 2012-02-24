@@ -21,9 +21,19 @@ namespace ProxomoWP7Demo
     {
         #region Callback Helper functions
 
-    // used by each callback to check for exceptions returned by SDK via the Error argument before processign Results
-    // Not the most graceful approach but quick and dirty to get this in place for now
-    private void CheckErrorReturned(Exception error)
+        private void displayErrorInfo(int HttpRespCode, string HttpRespMessage, string WrapperErrMsg)
+        {
+            List<string> names = new List<string>();
+
+            names.Add("Operation failed.");
+            names.Add("Http Code: " + HttpRespCode);
+            names.Add("Http Msg: " + HttpRespMessage);
+            names.Add("General error Message: " + WrapperErrMsg);
+
+            Dispatcher.BeginInvoke(() => OutputListBox.ItemsSource = names);
+
+        }
+        private void CheckErrorReturned(Exception error)
     {
 
         return;
@@ -115,14 +125,14 @@ namespace ProxomoWP7Demo
 
         private void Initialization_Complete(ItemCompletedEventArgs<Token> args)
         { //Callback no longer being used for signaling when Init has completed. We want the initialization to act synchronously so it should ot return until it is done.
-            //Console.WriteLine("Hello, world!");
+
             Dispatcher.BeginInvoke(() => ConnectionStatus.Text = "Connected");
             Dispatcher.BeginInvoke(() => ProxomoMethodList.IsEnabled = true);
             Dispatcher.BeginInvoke(() => RunButton.IsEnabled = true);
             Dispatcher.BeginInvoke(() => Login.IsEnabled = true);
         }
 
-        #region    1. Event Handlers
+        #region    Delegate callbacks
 
         #region AppData Callbacks
 
@@ -185,10 +195,16 @@ namespace ProxomoWP7Demo
 
         private void CustomDataAdd_Complete(ItemCompletedEventArgs<string> args)
         {
-            CheckErrorReturned(args.Error);
-            List<string> names = new List<string>();
-            names.Add("CustomData Record created. Record ID" + args.Result);
-            Dispatcher.BeginInvoke(() => OutputListBox.ItemsSource = names);
+            if (args.IsError)
+            {
+                displayErrorInfo(args.HttpRespCode, args.HttpRespMessage, args.Error.Message);
+            }
+            else
+            {
+                List<string> names = new List<string>();
+                names.Add("CustomData Record created. Record ID" + args.Result);
+                Dispatcher.BeginInvoke(() => OutputListBox.ItemsSource = names);
+            }
         }
         private void CustomDataDelete_Complete(ItemCompletedEventArgs<string> args)
         {
@@ -199,10 +215,17 @@ namespace ProxomoWP7Demo
         }
         private void CustomDataUpdate_Complete(ItemCompletedEventArgs<string> args)
         {
-            CheckErrorReturned(args.Error);
-            List<string> names = new List<string>();
-            names.Add("Update completed.");
-            Dispatcher.BeginInvoke(() => OutputListBox.ItemsSource = names);
+            if (args.IsError)
+            {
+                displayErrorInfo(args.HttpRespCode, args.HttpRespMessage, args.Error.Message);
+            }
+            else
+            {
+
+                List<string> names = new List<string>();
+                names.Add("Update completed.");
+                Dispatcher.BeginInvoke(() => OutputListBox.ItemsSource = names);
+            }
         }
         private void CustomDataGet_Complete(ItemCompletedEventArgs<Custom_TrainingRec> args)
         {
@@ -211,7 +234,6 @@ namespace ProxomoWP7Demo
             names.Add("Get completed.Need to add code to display item contents.");
             Dispatcher.BeginInvoke(() => OutputListBox.ItemsSource = names);
         }
-
         private void CustomDataSearch_Complete(ItemCompletedEventArgs<List<Custom_TrainingRec>> args)
         {
             CheckErrorReturned(args.Error);
@@ -817,6 +839,10 @@ namespace ProxomoWP7Demo
 
         #endregion
 
+        //string applicationID = "<some>"; //"nngAqYvGWMM9EwyO"; //"<YOUR APP ID HERE>";
+        //string ProxomoAPIkey = "<somemore>"; //"NnunozvrF6hg4Zfu77uqf8ssKwt1ueV+eZlCWk2k++I="; //"<YOUR PROXOMO API KEY HERE>";
+
+        // Enter the unique values for your app here
         string applicationID = "<YOUR APP ID HERE>";
         string ProxomoAPIkey = "<YOUR PROXOMO API KEY HERE>";
         public Proxomo.ProxomoApi WP7SDKInstance;
@@ -938,17 +964,27 @@ namespace ProxomoWP7Demo
         private void Connect_Click(object sender, RoutedEventArgs e)
         {
             initializeButtonState();
-            
-            // This next call will be make to behave synchronously so it will nto return until Initialization is completed...
-            WP7SDKInstance = new ProxomoApi(applicationID, ProxomoAPIkey, "V09", CommunicationType.JSON, true);
-            
-            ConnectionStatus.Text = "Connecting....";
 
-            // Enable the front panel options so user can now run methods....
-            Dispatcher.BeginInvoke(() => ConnectionStatus.Text = "Connected");
-            Dispatcher.BeginInvoke(() => ProxomoMethodList.IsEnabled = true);
-            Dispatcher.BeginInvoke(() => RunButton.IsEnabled = true);
-            Dispatcher.BeginInvoke(() => Login.IsEnabled = true);
+            // Make sure user has entered the unique values assigned when they registered their app in the App Manager
+            if ((applicationID == "<YOUR APP ID HERE>") || (ProxomoAPIkey == "<YOUR APP ID HERE>"))
+            {
+                ConnectionStatus.Text = "The applicationID and ProxomoAPIkey values are not correct. Search for the comment'Enter the unique values for your app here' on this demo and enter the TWO unique values generated by the Proxomo App Manager when you registered your app.";
+                //throw new Exception("The applicationID and ProxomoAPIkey values are not correct. Search for 'YOUR PROXOMO API KEY HERE' on this demo and enter the TWO unique values generated by the Proxomo App Manager when you registered your app.");
+            }
+            else
+            {
+                // This next call will be make to behave synchronously so it will nto return until Initialization is completed...
+                WP7SDKInstance = new ProxomoApi(applicationID, ProxomoAPIkey, "V09", CommunicationType.JSON, true);
+
+                ConnectionStatus.Text = "Connecting....";
+
+                // Enable the front panel options so user can now run methods....
+                Dispatcher.BeginInvoke(() => ConnectionStatus.Text = "Connected");
+                Dispatcher.BeginInvoke(() => ProxomoMethodList.IsEnabled = true);
+                Dispatcher.BeginInvoke(() => RunButton.IsEnabled = true);
+                Dispatcher.BeginInvoke(() => Login.IsEnabled = true);
+
+            }
         }
 
         private void RunButton_Click(object sender, RoutedEventArgs e)
@@ -958,7 +994,13 @@ namespace ProxomoWP7Demo
             OutputSelectionInTextForm.Text = "";
             checkSDKInitialized();
 
-
+            // SDK allows the user to send in an object of user data into any method. This user data is just passed through all 
+            // the way to the delegate callback specified by the user. See the SDK documentation on Delegate User Data for more info.
+            // For this demo we send in an AppData object to simulate User Data.
+            AppData someUserData = new AppData();
+            someUserData.Key = "User_datakey";
+            someUserData.Value = "User_datavalue";
+            someUserData.ObjectType = "user_dataobjType";
 
             switch (methodToCall)
             {
@@ -970,19 +1012,19 @@ namespace ProxomoWP7Demo
                     newRecord.ObjectType = "Fish Type" + DateTime.Now.ToString();
 
                     ProxomoUserCallbackDelegate<string> AppDataAdd_Callback = new ProxomoUserCallbackDelegate<string>(AppDataAdd_Complete);
-                    WP7SDKInstance.AppDataAdd(newRecord, AppDataAdd_Callback);
+                    WP7SDKInstance.AppDataAdd(newRecord, AppDataAdd_Callback, (object)someUserData);
                     break;
                 case "AppData Delete":          
                     ProxomoUserCallbackDelegate<string> AppDataDelete_Callback = new ProxomoUserCallbackDelegate<string>(AppDataDelete_Complete);
-                    WP7SDKInstance.AppDataDelete("WHViEPrUguKGq8W4", AppDataDelete_Callback); // the specific ID passed in can only be used once for testing!
+                    WP7SDKInstance.AppDataDelete("WHViEPrUguKGq8W4", AppDataDelete_Callback, (object)someUserData); // the specific ID passed in can only be used once for testing!
                     break;
                 case "AppData Get":
                     ProxomoUserCallbackDelegate<AppData> AppDataGet_Callback = new ProxomoUserCallbackDelegate<AppData>(AppDataGet_Complete);
-                    WP7SDKInstance.AppDataGet("KHlimBfgeMBmE7pG", AppDataGet_Callback); // Also can use 8weFqMhjYPCvgLfs
+                    WP7SDKInstance.AppDataGet("KHlimBfgeMBmE7pG", AppDataGet_Callback, (object)someUserData); // Also can use 8weFqMhjYPCvgLfs
                     break;
                 case "AppData Get All":
                     ProxomoUserCallbackDelegate<List<AppData>> AppDataGetAll_Callback = new ProxomoUserCallbackDelegate<List<AppData>>(AppDataGetAll_Complete);
-                    WP7SDKInstance.AppDataGetAll(AppDataGetAll_Callback);
+                    WP7SDKInstance.AppDataGetAll(AppDataGetAll_Callback, (object)someUserData);
                     break;
                 case "AppData Update":
                     AppData updRecord = new AppData();
@@ -992,11 +1034,11 @@ namespace ProxomoWP7Demo
                     updRecord.ObjectType = "Updated on" + DateTime.Now.ToString();
 
                     ProxomoUserCallbackDelegate<string> AppDataUpdate_Callback = new ProxomoUserCallbackDelegate<string>(AppDataUpdate_Complete);
-                    WP7SDKInstance.AppDataAdd(updRecord, AppDataUpdate_Callback);
+                    WP7SDKInstance.AppDataAdd(updRecord, AppDataUpdate_Callback, (object)someUserData);
                     break;
                 case "AppData Search":
                     ProxomoUserCallbackDelegate<List<AppData>> AppDataSearch_Callback = new ProxomoUserCallbackDelegate<List<AppData>>(AppDataSearch_Complete);
-                    WP7SDKInstance.AppDataSearch("Fish Type", AppDataSearch_Callback);
+                    WP7SDKInstance.AppDataSearch("Fish Type", AppDataSearch_Callback, (object)someUserData);
                     break;
 
                 #endregion
@@ -1006,26 +1048,26 @@ namespace ProxomoWP7Demo
                     Custom_TrainingRec financialRec = new Custom_TrainingRec("BabyBoomerTable", "", "02-21-11", "Bank Of St.David", 555.11, "Overtime", false, true, 3);
                     
                     ProxomoUserCallbackDelegate<string> CustomDataAdd_Callback = new ProxomoUserCallbackDelegate<string>(CustomDataAdd_Complete);
-                    WP7SDKInstance.CustomDataAdd(financialRec, CustomDataAdd_Callback);
+                    WP7SDKInstance.CustomDataAdd(financialRec, CustomDataAdd_Callback, (object)someUserData);
                     break;
                 case "CustomData Delete":
                     ProxomoUserCallbackDelegate<string> CustomDataDelete_Callback = new ProxomoUserCallbackDelegate<string>(CustomDataDelete_Complete);
-                    WP7SDKInstance.CustomDataDelete("BabyBoomerTable", "WHViEPrUguKGq8W4", CustomDataDelete_Callback); // the specific ID passed in can only be used once for testing!
+                    WP7SDKInstance.CustomDataDelete("BabyBoomerTable", "WHViEPrUguKGq8W4", CustomDataDelete_Callback, (object)someUserData); // the specific ID passed in can only be used once for testing!
                     break;
                 case "CustomData Update":
                     Custom_TrainingRec financialRecUpd = new Custom_TrainingRec("BabyBoomerTable", "", "02-21-08", "Bank Of David", 123.45, "Holiday bonus", false, true, 3);
 
                     ProxomoUserCallbackDelegate<string> CustomDataUpdate_Callback = new ProxomoUserCallbackDelegate<string>(CustomDataUpdate_Complete);
-                    WP7SDKInstance.CustomDataUpdate(financialRecUpd, CustomDataUpdate_Callback);
+                    WP7SDKInstance.CustomDataUpdate(financialRecUpd, CustomDataUpdate_Callback, (object)someUserData);
                     break;
                 case "CustomData GetByID":
                     ProxomoUserCallbackDelegate<Custom_TrainingRec> CustomDataGet_Callback = new ProxomoUserCallbackDelegate<Custom_TrainingRec>(CustomDataGet_Complete);
-                    WP7SDKInstance.CustomDataGet("BabyBoomerTable", "9TXZrVuyAW4x8GaX", CustomDataGet_Callback);
+                    WP7SDKInstance.CustomDataGet("BabyBoomerTable", "9TXZrVuyAW4x8GaX", CustomDataGet_Callback, (object)someUserData);
                     break;
                 case "CustomData Search":
                     ProxomoUserCallbackDelegate<List<Custom_TrainingRec>> CustomDataSearch_Callback = new ProxomoUserCallbackDelegate<List<Custom_TrainingRec>>(CustomDataSearch_Complete);
                     ContinuationTokens ct = new ContinuationTokens("", "");
-                    WP7SDKInstance.CustomDataSearch("BabyBoomerTable", "amount gt 1.0", 50, CustomDataSearch_Callback, ref ct);
+                    WP7SDKInstance.CustomDataSearch("BabyBoomerTable", "amount gt 1.0", 50, CustomDataSearch_Callback, (object)someUserData, ref ct);
                     break;
 
                 #endregion
@@ -1058,11 +1100,11 @@ namespace ProxomoWP7Demo
                     #endregion                    
                                         
                     ProxomoUserCallbackDelegate<string> EventAdd_Callback = new ProxomoUserCallbackDelegate<string>(EventAdd_Complete);
-                    WP7SDKInstance.EventAdd(new_event, EventAdd_Callback);
+                    WP7SDKInstance.EventAdd(new_event, EventAdd_Callback, (object)someUserData);
                     break;
                 case "Event Get":
                     ProxomoUserCallbackDelegate<Event> EventGet_Callback = new ProxomoUserCallbackDelegate<Event>(EventGet_Complete);
-                    WP7SDKInstance.EventGet("TDfSLC5Ge1E2Xdov",EventGet_Callback); // 3Znr7CnkEo8OCqk7 = Bun Run 2011
+                    WP7SDKInstance.EventGet("TDfSLC5Ge1E2Xdov",EventGet_Callback, (object)someUserData); // 3Znr7CnkEo8OCqk7 = Bun Run 2011
                     break;
                 case "Event Update":
 
@@ -1087,21 +1129,21 @@ namespace ProxomoWP7Demo
                     #endregion
 
                     ProxomoUserCallbackDelegate<string> EventUpdate_Callback = new ProxomoUserCallbackDelegate<string>(EventUpdate_Complete);
-                    WP7SDKInstance.EventUpdate(updEvent, EventUpdate_Callback);
+                    WP7SDKInstance.EventUpdate(updEvent, EventUpdate_Callback, (object)someUserData);
                     break;
                 case "Events Search By Distance":
                     DateTime startTime = new DateTime(2010, 1, 1);
                     DateTime endTime = new DateTime(2012, 10, 10);
 
                     ProxomoUserCallbackDelegate<List<Event>> EventsSearchByDistance_Callback = new ProxomoUserCallbackDelegate<List<Event>>(EventsSearchByDistance_Complete);
-                    WP7SDKInstance.EventsSearchByDistance(30, -97, 500, startTime, endTime, EventsSearchByDistance_Callback);
+                    WP7SDKInstance.EventsSearchByDistance(30, -97, 500, startTime, endTime, EventsSearchByDistance_Callback, (object)someUserData);
                     break;
                 case "Events Search By PersonID":
                     DateTime startTime2 = new DateTime(2010, 1, 1);
                     DateTime endTime2 = new DateTime(2012, 10, 10);
 
                     ProxomoUserCallbackDelegate<List<Event>> EventsSearchByPersonID_Callback = new ProxomoUserCallbackDelegate<List<Event>>(EventsSearchByPersonID_Complete);
-                    WP7SDKInstance.EventsSearchByPersonID("pLJVJbcgUeMum6RR", startTime2, endTime2, EventsSearchByPersonID_Callback);
+                    WP7SDKInstance.EventsSearchByPersonID("pLJVJbcgUeMum6RR", startTime2, endTime2, EventsSearchByPersonID_Callback, (object)someUserData);
                     break;
 
                 #endregion
@@ -1116,18 +1158,18 @@ namespace ProxomoWP7Demo
                     new_comment.PersonName = "Hjalmar Perez";
 
                     ProxomoUserCallbackDelegate<string> EventCommentAdd_Callback = new ProxomoUserCallbackDelegate<string>(EventCommentAdd_Complete);
-                    WP7SDKInstance.EventCommentAdd(new_comment.EventID, new_comment, EventCommentAdd_Callback);
+                    WP7SDKInstance.EventCommentAdd(new_comment.EventID, new_comment, EventCommentAdd_Callback, (object)someUserData);
                     break;
                 case "Event Comment Delete":
                     string eventID = "uvzewOelA69yo5Rg";
                     string commentID_toDelete = "Hxof9ind2v6ajBb1"; // Comment ID to delete... cannot run this method twice without changing
 
                     ProxomoUserCallbackDelegate<string> EventCommentDelete_Callback = new ProxomoUserCallbackDelegate<string>(EventCommentDelete_Complete);
-                    WP7SDKInstance.EventCommentDelete(eventID, commentID_toDelete, EventCommentDelete_Callback);
+                    WP7SDKInstance.EventCommentDelete(eventID, commentID_toDelete, EventCommentDelete_Callback, (object)someUserData);
                     break;
                 case "Event Comments Get":
                     ProxomoUserCallbackDelegate<List<EventComment>> EventCommentsGet_Callback = new ProxomoUserCallbackDelegate<List<EventComment>>(EventCommentsGet_Complete);
-                    WP7SDKInstance.EventCommentsGet("uvzewOelA69yo5Rg", EventCommentsGet_Callback);
+                    WP7SDKInstance.EventCommentsGet("uvzewOelA69yo5Rg", EventCommentsGet_Callback, (object)someUserData);
                     break;
                 case "Event Comment Update":
                     EventComment updated_EventComment = new EventComment();
@@ -1138,7 +1180,7 @@ namespace ProxomoWP7Demo
                     updated_EventComment.PersonName = "Hjalmar Perez";
 
                    ProxomoUserCallbackDelegate<string> EventCommentUpdate_Callback = new ProxomoUserCallbackDelegate<string>(EventCommentUpdate_Complete);
-                    WP7SDKInstance.EventCommentUpdate(updated_EventComment.EventID, updated_EventComment, EventCommentUpdate_Callback);
+                    WP7SDKInstance.EventCommentUpdate(updated_EventComment.EventID, updated_EventComment, EventCommentUpdate_Callback, (object)someUserData);
                     break;
 
                 #endregion
@@ -1147,7 +1189,7 @@ namespace ProxomoWP7Demo
 
                 case "Event Participants Get":
                     ProxomoUserCallbackDelegate<List<EventParticipant>> EventParticipantsGet_Callback = new ProxomoUserCallbackDelegate<List<EventParticipant>>(EventParticipantsGet_Complete);
-                    WP7SDKInstance.EventParticipantsGet("3Znr7CnkEo8OCqk7", EventParticipantsGet_Callback);
+                    WP7SDKInstance.EventParticipantsGet("3Znr7CnkEo8OCqk7", EventParticipantsGet_Callback, (object)someUserData);
                     break;
                 case "Event Participant Invite":
                     string invEventID = "3Znr7CnkEo8OCqk7"; // Bun Run
@@ -1156,29 +1198,29 @@ namespace ProxomoWP7Demo
                     // Doug PersonID: xcHXAvkWY9FtPM7S
 
                     ProxomoUserCallbackDelegate<string> EventParticipantInvite_Callback = new ProxomoUserCallbackDelegate<string>(EventParticipantInvite_Complete);
-                    WP7SDKInstance.EventParticipantInvite(invEventID, invPersonID, EventParticipantInvite_Callback);
+                    WP7SDKInstance.EventParticipantInvite(invEventID, invPersonID, EventParticipantInvite_Callback, (object)someUserData);
                     break;
                 case "Event Participants Invite":
                     string[] personIDArray = { "sxcTDuxAfMAblAVV", "xcHXAvkWY9FtPM7S" }; // inviting Daniel and Doug
                     ProxomoUserCallbackDelegate<string> EventParticipantsInvite_Callback = new ProxomoUserCallbackDelegate<string>(EventParticipantsInvite_Complete);
-                    WP7SDKInstance.EventParticipantsInvite("3Znr7CnkEo8OCqk7", personIDArray,EventParticipantsInvite_Callback);
+                    WP7SDKInstance.EventParticipantsInvite("3Znr7CnkEo8OCqk7", personIDArray,EventParticipantsInvite_Callback, (object)someUserData);
                     break;
                 case "Event Participants Delete":
                     // Debug from Fiddler using: DELETE
                     // https://127.0.0.1:444/V09/xml/event/3Znr7CnkEo8OCqk7/participant/{participantID}
                     string participantIDRecord = "enter valid value";
                     ProxomoUserCallbackDelegate<string> EventParticipantDelete_Callback = new ProxomoUserCallbackDelegate<string>(EventParticipantsDelete_Complete);
-                    WP7SDKInstance.EventParticipantDelete("", participantIDRecord,EventParticipantDelete_Callback); // eventID not really used so can pass in empty string. Need to update the Participant record to delete
+                    WP7SDKInstance.EventParticipantDelete("", participantIDRecord,EventParticipantDelete_Callback, (object)someUserData); // eventID not really used so can pass in empty string. Need to update the Participant record to delete
                     break;
                 case "Event Request Invitation":
                     // Debug from Fiddler using: PUT
                     // https://127.0.0.1:444/V09/xml/event/3Znr7CnkEo8OCqk7/requestinvite/personid/9lKbnvIoT4Os9fyc
                     ProxomoUserCallbackDelegate<string> EventRequestInvitation_Callback = new ProxomoUserCallbackDelegate<string>(EventRequestInvitation_Complete);
-                    WP7SDKInstance.EventRequestInvitation("3Znr7CnkEo8OCqk7", "9lKbnvIoT4Os9fyc",EventRequestInvitation_Callback);
+                    WP7SDKInstance.EventRequestInvitation("3Znr7CnkEo8OCqk7", "9lKbnvIoT4Os9fyc",EventRequestInvitation_Callback, (object)someUserData);
                     break;
                 case "Event RSVP":
                     ProxomoUserCallbackDelegate<string> EventRSVP_Callback = new ProxomoUserCallbackDelegate<string>(EventRSVP_Complete);
-                    WP7SDKInstance.EventRSVP("3Znr7CnkEo8OCqk7", EventParticipantStatus.Attending, "sxcTDuxAfMAblAVV",EventRSVP_Callback); // Daniel RSVP
+                    WP7SDKInstance.EventRSVP("3Znr7CnkEo8OCqk7", EventParticipantStatus.Attending, "sxcTDuxAfMAblAVV",EventRSVP_Callback, (object)someUserData); // Daniel RSVP
                     break;
 
                 #endregion
@@ -1196,25 +1238,25 @@ namespace ProxomoWP7Demo
                     newaRecord.ObjectType = "EventAppDataObjType:" + DateTime.Now.ToString();
 
                     ProxomoUserCallbackDelegate<string> EventAppDataAdd_Callback = new ProxomoUserCallbackDelegate<string>(EventAppDataAdd_Complete);
-                    WP7SDKInstance.EventAppDataAdd("M3VLa4SBO7oWNvJL", newaRecord,EventAppDataAdd_Callback);
+                    WP7SDKInstance.EventAppDataAdd("M3VLa4SBO7oWNvJL", newaRecord,EventAppDataAdd_Callback, (object)someUserData);
                     break;
                 case "Event AppData Delete":
                     // Debug from Fiddler using:
                     // 
                     ProxomoUserCallbackDelegate<string> EventAppDataDelete_Callback = new ProxomoUserCallbackDelegate<string>(EventAppDataDelete_Complete);
-                    WP7SDKInstance.EventAppDataDelete("", "",EventAppDataDelete_Callback); // will need to at least update AppData record ID during debug
+                    WP7SDKInstance.EventAppDataDelete("", "",EventAppDataDelete_Callback, (object)someUserData); // will need to at least update AppData record ID during debug
                     break;
                 case "Event AppData Get":
                     // Debug from Fiddler using: GET
                     // https://127.0.0.1:444/V09/xml/event/3Znr7CnkEo8OCqk7/appdata/9CpPWxZtKCvYlKtr
                     ProxomoUserCallbackDelegate<AppData> EventAppDataGet_Callback = new ProxomoUserCallbackDelegate<AppData>(EventAppDataGet_Complete);
-                    WP7SDKInstance.EventAppDataGet("M3VLa4SBO7oWNvJL", "lw8p79z2fuWGlXtd",EventAppDataGet_Callback);
+                    WP7SDKInstance.EventAppDataGet("M3VLa4SBO7oWNvJL", "lw8p79z2fuWGlXtd",EventAppDataGet_Callback, (object)someUserData);
                     break;
                 case "Event AppData Get All":
                     // Debug from Fiddler using: GET
                     // https://127.0.0.1:444/V09/xml/event/3Znr7CnkEo8OCqk7/appdata
                     ProxomoUserCallbackDelegate<List<AppData>> EventAppDataGetAll_Callback = new ProxomoUserCallbackDelegate<List<AppData>>(EventAppDataGetAll_Complete);
-                    WP7SDKInstance.EventAppDataGetAll("M3VLa4SBO7oWNvJL",EventAppDataGetAll_Callback);
+                    WP7SDKInstance.EventAppDataGetAll("M3VLa4SBO7oWNvJL",EventAppDataGetAll_Callback, (object)someUserData);
                     break;
                 case "Event AppData Update":
                     // Debug from Fiddler using: PUT
@@ -1228,7 +1270,7 @@ namespace ProxomoWP7Demo
                     updaRecord.ObjectType = "UPDEventAppDataObjType:" + DateTime.Now.ToString();
 
                     ProxomoUserCallbackDelegate<string> EventAppDataUpdate_Callback = new ProxomoUserCallbackDelegate<string>(EventAppDataUpdate_Complete);
-                    WP7SDKInstance.EventAppDataUpdate("M3VLa4SBO7oWNvJL", updaRecord,EventAppDataUpdate_Callback);
+                    WP7SDKInstance.EventAppDataUpdate("M3VLa4SBO7oWNvJL", updaRecord,EventAppDataUpdate_Callback, (object)someUserData);
                     break;
 
                 #endregion
@@ -1237,27 +1279,27 @@ namespace ProxomoWP7Demo
 
                 case "Friends Get":
                     ProxomoUserCallbackDelegate<List<Friend>> FriendsGet_Callback = new ProxomoUserCallbackDelegate<List<Friend>>(FriendsGet_Complete);
-                    WP7SDKInstance.FriendsGet("pLJVJbcgUeMum6RR",FriendsGet_Callback);
+                    WP7SDKInstance.FriendsGet("pLJVJbcgUeMum6RR",FriendsGet_Callback, (object)someUserData);
                     break;
                 case "Friend Invite":
                     ProxomoUserCallbackDelegate<string> FriendInvite_Callback = new ProxomoUserCallbackDelegate<string>(FriendInvite_Complete);
-                    WP7SDKInstance.FriendInvite("pLJVJbcgUeMum6RR", "xcHXAvkWY9FtPM7S",FriendInvite_Callback);
+                    WP7SDKInstance.FriendInvite("pLJVJbcgUeMum6RR", "xcHXAvkWY9FtPM7S",FriendInvite_Callback, (object)someUserData);
                     break;
                 case "Friend Invite By SocialNetwork":
                     ProxomoUserCallbackDelegate<string> FriendBySocialNetworkInvite_Callback = new ProxomoUserCallbackDelegate<string>(FriendBySocialNetworkInvite_Complete);
-                    WP7SDKInstance.FriendBySocialNetworkInvite(SocialNetwork.Facebook, "pLJVJbcgUeMum6RR", "xcHXAvkWY9FtPM7S",FriendBySocialNetworkInvite_Callback);
+                    WP7SDKInstance.FriendBySocialNetworkInvite(SocialNetwork.Facebook, "pLJVJbcgUeMum6RR", "xcHXAvkWY9FtPM7S",FriendBySocialNetworkInvite_Callback, (object)someUserData);
                     break;
                 case "Friend Respond":
                     ProxomoUserCallbackDelegate<string> FriendRespond_Callback = new ProxomoUserCallbackDelegate<string>(FriendRespond_Complete);
-                    WP7SDKInstance.FriendRespond(FriendResponse.Accept, "sxcTDuxAfMAblAVV", "pLJVJbcgUeMum6RR",FriendRespond_Callback);
+                    WP7SDKInstance.FriendRespond(FriendResponse.Accept, "sxcTDuxAfMAblAVV", "pLJVJbcgUeMum6RR",FriendRespond_Callback, (object)someUserData);
                     break;
                 case "Friends SocialNetwork Get":
                     ProxomoUserCallbackDelegate<List<SocialNetworkFriend>> FriendsSocialNetworkGet_Callback = new ProxomoUserCallbackDelegate<List<SocialNetworkFriend>>(FriendsSocialNetworkGet_Complete);
-                    WP7SDKInstance.FriendsSocialNetworkGet(SocialNetwork.Facebook, "pLJVJbcgUeMum6RR",FriendsSocialNetworkGet_Callback);
+                    WP7SDKInstance.FriendsSocialNetworkGet(SocialNetwork.Facebook, "pLJVJbcgUeMum6RR",FriendsSocialNetworkGet_Callback, (object)someUserData);
                     break;
                 case "Friends SocialNetwork App Get":
                     ProxomoUserCallbackDelegate<List<SocialNetworkPFriend>> FriendsSocialNetworkAppGet_Callback = new ProxomoUserCallbackDelegate<List<SocialNetworkPFriend>>(FriendsSocialNetworkAppGet_Complete);
-                    WP7SDKInstance.FriendsSocialNetworkAppGet(SocialNetwork.Facebook, "pLJVJbcgUeMum6RR",FriendsSocialNetworkAppGet_Callback);
+                    WP7SDKInstance.FriendsSocialNetworkAppGet(SocialNetwork.Facebook, "pLJVJbcgUeMum6RR",FriendsSocialNetworkAppGet_Callback, (object)someUserData);
                     break;
 
                 #endregion
@@ -1269,19 +1311,19 @@ namespace ProxomoWP7Demo
                     // https://127.0.0.1:446/V09/xml/geo/lookup/address/78729
                     // https://127.0.0.1:446/V09/xml/geo/lookup/address/13220%20Marrero%20Dr.%20Austin%20TX%2078729
                     ProxomoUserCallbackDelegate<GeoCode> GeoCodebyAddress_Callback = new ProxomoUserCallbackDelegate<GeoCode>(GeoCodebyAddress_Complete);
-                    WP7SDKInstance.GeoCodebyAddress("13218 Marrero Dr. Austin TX 78729",GeoCodebyAddress_Callback);
+                    WP7SDKInstance.GeoCodebyAddress("13218 Marrero Dr. Austin TX 78729",GeoCodebyAddress_Callback, (object)someUserData);
                     break;
                 case "Reverse GeoCode":
                     // Debug from Fiddler using:
                     // https://127.0.0.1:452/V09/xml/geo/lookup/latitude/30.457146/longitude/-97.745941
                     ProxomoUserCallbackDelegate<Location> ReverseGeoCode_Callback = new ProxomoUserCallbackDelegate<Location>(ReverseGeoCode_Complete);
-                    WP7SDKInstance.ReverseGeoCode("30.457146", "-97.745941",ReverseGeoCode_Callback); // coords for 13218 Marrero Dr. Austin TX 78729
+                    WP7SDKInstance.ReverseGeoCode("30.457146", "-97.745941",ReverseGeoCode_Callback, (object)someUserData); // coords for 13218 Marrero Dr. Austin TX 78729
                     break;
                 case "GeoCode By IP Address":
                     // Debug from Fiddler using:
                     // https://127.0.0.1:446/V09/xml/geo/lookup/ip/76.183.57.69
                     ProxomoUserCallbackDelegate<GeoIP> GeoCodeByIPAddress_Callback = new ProxomoUserCallbackDelegate<GeoIP>(GeoCodeByIPAddress_Complete);
-                    WP7SDKInstance.GeoCodeByIPAddress("76.183.57.69",GeoCodeByIPAddress_Callback);
+                    WP7SDKInstance.GeoCodeByIPAddress("76.183.57.69",GeoCodeByIPAddress_Callback, (object)someUserData);
                     break;
 
                 #endregion
@@ -1301,15 +1343,15 @@ namespace ProxomoWP7Demo
                     newLocation.PersonID = "pLJVJbcgUeMum6RR";
 
                     ProxomoUserCallbackDelegate<string> LocationAdd_Callback = new ProxomoUserCallbackDelegate<string>(LocationAdd_Complete);
-                    WP7SDKInstance.LocationAdd(newLocation,LocationAdd_Callback);
+                    WP7SDKInstance.LocationAdd(newLocation,LocationAdd_Callback, (object)someUserData);
                     break;
                 case "Location Delete":
                     ProxomoUserCallbackDelegate<string> LocationDelete_Callback = new ProxomoUserCallbackDelegate<string>(LocationDelete_Complete);
-                    WP7SDKInstance.LocationDelete("GqA5Yl6JRpMileob",LocationDelete_Callback);
+                    WP7SDKInstance.LocationDelete("GqA5Yl6JRpMileob",LocationDelete_Callback, (object)someUserData);
                     break;
                 case "Location Get":
                     ProxomoUserCallbackDelegate<Location> LocationGet_Callback = new ProxomoUserCallbackDelegate<Location>(LocationGet_Complete);
-                    WP7SDKInstance.LocationGet("Gq465TKVuqeQw8fb",LocationGet_Callback);
+                    WP7SDKInstance.LocationGet("Gq465TKVuqeQw8fb",LocationGet_Callback, (object)someUserData);
                     break;
                 case "Location Update":
                     Location updLocRecord = new Location();
@@ -1325,11 +1367,11 @@ namespace ProxomoWP7Demo
                     updLocRecord.PersonID = "pLJVJbcgUeMum6RR";
 
                     ProxomoUserCallbackDelegate<string> LocationUpdate_Callback = new ProxomoUserCallbackDelegate<string>(LocationUpdate_Complete);
-                    WP7SDKInstance.LocationUpdate(updLocRecord,LocationUpdate_Callback);
+                    WP7SDKInstance.LocationUpdate(updLocRecord,LocationUpdate_Callback, (object)someUserData);
                     break;
                 case "Location Categories Get":
                     ProxomoUserCallbackDelegate<List<Category>> LocationCategoriesGet_Callback = new ProxomoUserCallbackDelegate<List<Category>>(LocationCategoriesGet_Complete);
-                    WP7SDKInstance.LocationCategoriesGet(LocationCategoriesGet_Callback);
+                    WP7SDKInstance.LocationCategoriesGet(LocationCategoriesGet_Callback, (object)someUserData);
                     break;
 
             #endregion
@@ -1344,19 +1386,19 @@ namespace ProxomoWP7Demo
                     // NO doubt this one worked from Fiddler on 5/25 at 1 pm
                     // https://127.0.0.1:452/V09/xml/locations/search?address=13220%20Marrero%20Dr.%20Austin%20TX%2078729&radius=100&maxresults=2
                     ProxomoUserCallbackDelegate<List<Location>> LocationsSearchByAddress_Callback = new ProxomoUserCallbackDelegate<List<Location>>(LocationsSearchByAddress_Complete);
-                    WP7SDKInstance.LocationsSearchByAddress("13218 Marrero Dr. Austin TX 78729", LocationsSearchByAddress_Callback,"", "", 50, LocationSearchScope.GlobalOnly, 10, ""); // no personID specified
+                    WP7SDKInstance.LocationsSearchByAddress("13218 Marrero Dr. Austin TX 78729", LocationsSearchByAddress_Callback, (object)someUserData, "", "", 50, LocationSearchScope.GlobalOnly, 10, ""); // no personID specified
                     break;
                 case "Locations Search By GPS":
                     // Debug from Fiddler using:
                     // https://127.0.0.1:453/V09/xml/locations/search/latitude/30.457146/longitude/-97.745941?radius=10&maxresults=2
                     ProxomoUserCallbackDelegate<List<Location>> LocationsSearchByGPS_Callback = new ProxomoUserCallbackDelegate<List<Location>>(LocationsSearchByGPS_Complete);
-                    WP7SDKInstance.LocationsSearchByGPS("30", "-97",LocationsSearchByGPS_Callback, "", "", 10, LocationSearchScope.GlobalOnly, 2, "");  // no personID specified
+                    WP7SDKInstance.LocationsSearchByGPS("30", "-97",LocationsSearchByGPS_Callback, (object)someUserData, "", "", 10, LocationSearchScope.GlobalOnly, 2, "");  // no personID specified
                     break;
                 case "Locations Search By IP Address":
                     // Debug from Fiddler using:
                     // https://127.0.0.1:452/V09/xml/locations/search/ip/76.183.57.69?radius=100&maxresults=10
                     ProxomoUserCallbackDelegate<List<Location>> LocationsSearchByIPAddress_Callback = new ProxomoUserCallbackDelegate<List<Location>>(LocationsSearchByIPAddress_Complete);
-                    WP7SDKInstance.LocationsSearchByIPAddress("76.183.57.69", LocationsSearchByIPAddress_Callback,"", "", 100, LocationSearchScope.GlobalOnly, 10);
+                    WP7SDKInstance.LocationsSearchByIPAddress("76.183.57.69", LocationsSearchByIPAddress_Callback, (object)someUserData, "", "", 100, LocationSearchScope.GlobalOnly, 10);
                     break;
 
                 #endregion
@@ -1374,25 +1416,25 @@ namespace ProxomoWP7Demo
                     newLocAppRecord.ObjectType = "LocAppDataObjType:" + DateTime.Now.ToString();
 
                     ProxomoUserCallbackDelegate<string> LocationAppDataAdd_Callback = new ProxomoUserCallbackDelegate<string>(LocationAppDataAdd_Complete);
-                    WP7SDKInstance.LocationAppDataAdd("yHU2CEiXgBteVltB", newLocAppRecord, LocationAppDataAdd_Callback);
+                    WP7SDKInstance.LocationAppDataAdd("yHU2CEiXgBteVltB", newLocAppRecord, LocationAppDataAdd_Callback, (object)someUserData);
                     break;
                 case "Location AppData Delete":
                     // Debug from Fiddler using:
                     // 
                     ProxomoUserCallbackDelegate<string> LocationAppDataDelete_Callback = new ProxomoUserCallbackDelegate<string>(LocationAppDataDelete_Complete);
-                    WP7SDKInstance.LocationAppDataDelete("USPgv6umFZ76p4Pk", "",LocationAppDataDelete_Callback); // will need to at least update AppData record ID during debug
+                    WP7SDKInstance.LocationAppDataDelete("USPgv6umFZ76p4Pk", "",LocationAppDataDelete_Callback, (object)someUserData); // will need to at least update AppData record ID during debug
                     break;
                 case "Location AppData Get":
                     // Debug from Fiddler using: GET
                     // https://127.0.0.1:444/V09/xml/location/yHU2CEiXgBteVltB/appdata/9CpPWxZtKCvYlKtr
                     ProxomoUserCallbackDelegate<AppData> LocationAppDataGet_Callback = new ProxomoUserCallbackDelegate<AppData>(LocationAppDataGet_Complete);
-                    WP7SDKInstance.LocationAppDataGet("yHU2CEiXgBteVltB", "nCvRzaPIM4hsIAjA", LocationAppDataGet_Callback); 
+                    WP7SDKInstance.LocationAppDataGet("yHU2CEiXgBteVltB", "nCvRzaPIM4hsIAjA", LocationAppDataGet_Callback, (object)someUserData); 
                     break;
                 case "Location AppData Get All":
                     // Debug from Fiddler using: GET
                     // https://127.0.0.1:444/V09/xml/location/yHU2CEiXgBteVltB/appdata
                     ProxomoUserCallbackDelegate<List<AppData>> LocationAppDataGetAll_Callback = new ProxomoUserCallbackDelegate<List<AppData>>(LocationAppDataGetAll_Complete);
-                    WP7SDKInstance.LocationAppDataGetAll("yHU2CEiXgBteVltB",LocationAppDataGetAll_Callback);
+                    WP7SDKInstance.LocationAppDataGetAll("yHU2CEiXgBteVltB",LocationAppDataGetAll_Callback, (object)someUserData);
                     break;
                 case "Location AppData Update":
                     // Debug from Fiddler using: PUT
@@ -1406,7 +1448,7 @@ namespace ProxomoWP7Demo
                     updLocAppRecord.ObjectType = "UPDLocAppDataObjType:" + DateTime.Now.ToString();
 
                     ProxomoUserCallbackDelegate<string> LocationAppDataUpdate_Callback = new ProxomoUserCallbackDelegate<string>(LocationAppDataUpdate_Complete);
-                    WP7SDKInstance.LocationAppDataUpdate("yHU2CEiXgBteVltB", updLocAppRecord, LocationAppDataUpdate_Callback);
+                    WP7SDKInstance.LocationAppDataUpdate("yHU2CEiXgBteVltB", updLocAppRecord, LocationAppDataUpdate_Callback, (object)someUserData);
                     break;
 
                 #endregion
@@ -1426,7 +1468,7 @@ namespace ProxomoWP7Demo
   //                  WP7SDKInstance.NotificationSend(nnewRecord);
 
                     ProxomoUserCallbackDelegate<string> NotificationSend_Callback = new ProxomoUserCallbackDelegate<string>(NotificationSend_Complete);
-                    WP7SDKInstance.NotificationSend(nnewRecord, NotificationSend_Callback);
+                    WP7SDKInstance.NotificationSend(nnewRecord, NotificationSend_Callback, (object)someUserData);
                     break;
 
                 #endregion
@@ -1435,7 +1477,7 @@ namespace ProxomoWP7Demo
 
                 case "Person Get":
                     ProxomoUserCallbackDelegate<Person> PersonGet_Callback = new ProxomoUserCallbackDelegate<Person>(PersonGet_Complete);
-                    WP7SDKInstance.PersonGet("pLJVJbcgUeMum6RR", PersonGet_Callback);
+                    WP7SDKInstance.PersonGet("pLJVJbcgUeMum6RR", PersonGet_Callback, (object)someUserData);
                     break;
                 case "Person Update":
                     Person new_record = new Person();
@@ -1446,7 +1488,7 @@ namespace ProxomoWP7Demo
                     new_record.EmailVerificationStatus = VerificationStatus.Complete;
 
                     ProxomoUserCallbackDelegate<string> PersonUpdate_Callback = new ProxomoUserCallbackDelegate<string>(PersonUpdate_Complete);
-                    WP7SDKInstance.PersonUpdate(new_record, PersonUpdate_Callback);
+                    WP7SDKInstance.PersonUpdate(new_record, PersonUpdate_Callback, (object)someUserData);
                     break;
                 case "Person AppData Add":
                     AppData addRecord = new AppData();
@@ -1455,19 +1497,19 @@ namespace ProxomoWP7Demo
                     addRecord.ObjectType = "Preferences";
 
                     ProxomoUserCallbackDelegate<string> PersonAppDataAdd_Callback = new ProxomoUserCallbackDelegate<string>(PersonAppDataAdd_Complete);
-                    WP7SDKInstance.PersonAppDataAdd("pLJVJbcgUeMum6RR", addRecord, PersonAppDataAdd_Callback);
+                    WP7SDKInstance.PersonAppDataAdd("pLJVJbcgUeMum6RR", addRecord, PersonAppDataAdd_Callback, (object)someUserData);
                     break;
                 case "Person AppData Delete":
                     ProxomoUserCallbackDelegate<string> PersonAppDataDelete_Callback = new ProxomoUserCallbackDelegate<string>(PersonAppDataDelete_Complete);
-                    WP7SDKInstance.PersonAppDataDelete("pLJVJbcgUeMum6RR", "dFn2VhqvzBwqluo1", PersonAppDataDelete_Callback);
+                    WP7SDKInstance.PersonAppDataDelete("pLJVJbcgUeMum6RR", "dFn2VhqvzBwqluo1", PersonAppDataDelete_Callback, (object)someUserData);
                     break;
                 case "Person AppData Get":
                     ProxomoUserCallbackDelegate<AppData> PersonAppDataGet_Callback = new ProxomoUserCallbackDelegate<AppData>(PersonAppDataGet_Complete);
-                    WP7SDKInstance.PersonAppDataGet("pLJVJbcgUeMum6RR", "ABP6H1JFpMD9gRuc", PersonAppDataGet_Callback);
+                    WP7SDKInstance.PersonAppDataGet("pLJVJbcgUeMum6RR", "ABP6H1JFpMD9gRuc", PersonAppDataGet_Callback, (object)someUserData);
                     break;
                 case "Person AppData Get All":
                     ProxomoUserCallbackDelegate<List<AppData>> PersonAppDataGetAll_Callback = new ProxomoUserCallbackDelegate<List<AppData>>(PersonAppDataGetAll_Complete);
-                    WP7SDKInstance.PersonAppDataGetAll("pLJVJbcgUeMum6RR", PersonAppDataGetAll_Callback);
+                    WP7SDKInstance.PersonAppDataGetAll("pLJVJbcgUeMum6RR", PersonAppDataGetAll_Callback, (object)someUserData);
                     break;
                 case "Person AppData Update":
 
@@ -1478,15 +1520,15 @@ namespace ProxomoWP7Demo
                     updAppDataRecord.ObjectType = "Preferences";
 
                     ProxomoUserCallbackDelegate<string> PersonAppDataUpdate_Callback = new ProxomoUserCallbackDelegate<string>(PersonAppDataUpdate_Complete);
-                    WP7SDKInstance.PersonAppDataUpdate("pLJVJbcgUeMum6RR", updAppDataRecord, PersonAppDataUpdate_Callback);
+                    WP7SDKInstance.PersonAppDataUpdate("pLJVJbcgUeMum6RR", updAppDataRecord, PersonAppDataUpdate_Callback, (object)someUserData);
                     break;
                 case "Person Locations Get":
                     ProxomoUserCallbackDelegate<List<Location>> PersonLocationsGet_Callback = new ProxomoUserCallbackDelegate<List<Location>>(PersonLocationsGet_Complete);
-                    WP7SDKInstance.PersonLocationsGet("pLJVJbcgUeMum6RR", PersonLocationsGet_Callback);
+                    WP7SDKInstance.PersonLocationsGet("pLJVJbcgUeMum6RR", PersonLocationsGet_Callback, (object)someUserData);
                     break;
                 case "Person SocialNetworkInfo Get":
                     ProxomoUserCallbackDelegate<List<SocialNetworkInfo>> PersonSocialNetworkInfoGet_Callback = new ProxomoUserCallbackDelegate<List<SocialNetworkInfo>>(PersonSocialNetworkInfoGet_Complete);
-                    WP7SDKInstance.PersonSocialNetworkInfoGet("pLJVJbcgUeMum6RR", SocialNetwork.Facebook, PersonSocialNetworkInfoGet_Callback);
+                    WP7SDKInstance.PersonSocialNetworkInfoGet("pLJVJbcgUeMum6RR", SocialNetwork.Facebook, PersonSocialNetworkInfoGet_Callback, (object)someUserData);
                     break;
 
                 #endregion
