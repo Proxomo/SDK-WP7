@@ -839,8 +839,6 @@ namespace ProxomoWP7Demo
 
         #endregion
 
-        //string applicationID = "<some>"; //"nngAqYvGWMM9EwyO"; //"<YOUR APP ID HERE>";
-        //string ProxomoAPIkey = "<somemore>"; //"NnunozvrF6hg4Zfu77uqf8ssKwt1ueV+eZlCWk2k++I="; //"<YOUR PROXOMO API KEY HERE>";
 
         // Enter the unique values for your app here
         string applicationID = "<YOUR APP ID HERE>";

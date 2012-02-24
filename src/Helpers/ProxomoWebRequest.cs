@@ -51,22 +51,6 @@ namespace Proxomo
             this.Format = format;
         }
 
-        //internal void GetDataItem(string url, string method, string contentType, string content, ProxomoUserCallbackDelegate<t> userCallback)
-        //{
-        //    object userData = null;
-
-        //    ContinuationTokens cTokens = new ContinuationTokens("", "");
-
-        //    GetDataItem(url, method, contentType, content, userCallback, userData, ref cTokens);
-        //}
-
-        //internal void GetDataItem(string url, string method, string contentType, string content, ProxomoUserCallbackDelegate<t> userCallback, ref ContinuationTokens cTokens)
-        //{         
-        //    object userData = null;
-
-        //    GetDataItem(url, method, contentType, content, userCallback, userData, ref cTokens);
-        //}
-
         internal void GetDataItem(string url, string method, string contentType, string content, ProxomoUserCallbackDelegate<t> userCallback, object userData)
         {
             ContinuationTokens cTokens = new ContinuationTokens("", "");
